@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\MessageSent;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -19,7 +20,7 @@ class MessageService
     {
         $this->conversationService->ensureUserIsParticipant($user, $conversation);
 
-        return DB::transaction(function () use ($user, $conversation, $data) {
+        $message = DB::transaction(function () use ($user, $conversation, $data) {
             $message = Message::create([
                 'conversation_id' => $conversation->id,
                 'sender_id' => $user->id,
@@ -39,13 +40,16 @@ class MessageService
                 ]);
             }
 
-            // Pengirim otomatis dianggap sudah membaca pesannya sendiri
             $conversation->participants()->updateExistingPivot($user->id, [
                 'last_read_at' => now(),
             ]);
 
             return $message->load(['sender', 'replyTo', 'attachments']);
         });
+
+        broadcast(new MessageSent($message))->toOthers();
+
+        return $message;
     }
 
     public function getMessages(User $user, Conversation $conversation, int $perPage = 30): LengthAwarePaginator
