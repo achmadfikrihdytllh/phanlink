@@ -2,11 +2,11 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConversationController;
+use App\Http\Controllers\Api\MessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -16,4 +16,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations/private', [ConversationController::class, 'startPrivate']);
     Route::post('/conversations/group', [ConversationController::class, 'createGroup']);
     Route::get('/conversations/{id}', [ConversationController::class, 'show']);
+
+    Route::get('/conversations/{conversationId}/messages', [MessageController::class, 'index']);
+    Route::post('/conversations/{conversationId}/messages', [MessageController::class, 'store']);
+    Route::post('/conversations/{conversationId}/read', [MessageController::class, 'markAsRead']);
 });

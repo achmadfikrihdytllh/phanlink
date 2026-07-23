@@ -25,6 +25,7 @@ class Message extends Model
     {
         return [
             'edited_at' => 'datetime',
+            'body' => 'encrypted',
         ];
     }
 
