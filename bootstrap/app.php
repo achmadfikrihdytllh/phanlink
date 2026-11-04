@@ -11,6 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Registers POST /broadcasting/auth (the URL the Angular EchoService calls)
+    // and loads routes/channels.php. Token auth, so Sanctum guards it, not cookies.
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })

@@ -16,6 +16,7 @@ class ConversationParticipant extends Model
         'role',
         'last_read_at',
         'is_muted',
+        'is_pinned',
         'joined_at',
     ];
 
@@ -25,6 +26,7 @@ class ConversationParticipant extends Model
             'last_read_at' => 'datetime',
             'joined_at' => 'datetime',
             'is_muted' => 'boolean',
+            'is_pinned' => 'boolean',
         ];
     }
 

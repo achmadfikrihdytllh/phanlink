@@ -38,6 +38,8 @@ class AuthService
             ]);
         }
 
+        $user->forceFill(['status' => 'online', 'last_seen_at' => now()])->save();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return [
@@ -52,5 +54,7 @@ class AuthService
         $token = $user->currentAccessToken();
 
         $token->delete();
+
+        $user->forceFill(['status' => 'offline', 'last_seen_at' => now()])->save();
     }
 }

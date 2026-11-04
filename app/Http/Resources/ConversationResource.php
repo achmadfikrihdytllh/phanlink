@@ -22,12 +22,24 @@ class ConversationResource extends JsonResource
             $displayAvatar = $otherParticipant?->avatar;
         }
 
+        // Pivot row of the signed-in user (read marker, mute/pin preferences)
+        $mine = $this->participants->firstWhere('id', $authUserId)?->pivot;
+
+        $unread = $this->messages()
+            ->where('sender_id', '!=', $authUserId)
+            ->when($mine?->last_read_at, fn ($q, $readAt) => $q->where('created_at', '>', $readAt))
+            ->count();
+
         return [
             'id' => $this->id,
             'type' => $this->type,
             'name' => $displayName,
             'avatar' => $displayAvatar,
+            'description' => $this->description,
             'created_by' => $this->created_by,
+            'unread_count' => $unread,
+            'is_muted' => (bool) ($mine?->is_muted ?? false),
+            'is_pinned' => (bool) ($mine?->is_pinned ?? false),
             'participants' => $this->whenLoaded('participants', function () {
                 return $this->participants->map(fn ($user) => [
                     'id' => $user->id,
