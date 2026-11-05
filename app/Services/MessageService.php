@@ -47,7 +47,13 @@ class MessageService
             return $message->load(['sender', 'replyTo', 'attachments']);
         });
 
-        broadcast(new MessageSent($message))->toOthers();
+        // The message is already saved; a realtime hiccup (e.g. Reverb not running)
+        // must not turn a successful send into a 500.
+        try {
+            broadcast(new MessageSent($message))->toOthers();
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return $message;
     }

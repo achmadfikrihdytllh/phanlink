@@ -67,20 +67,21 @@ class DatabaseSeeder extends Seeder
             $users['skull']->id => ['role' => 'member', 'joined_at' => now()],
         ]);
 
-        $today = now()->startOfDay();
+        // Relative to "now" so demo messages are never dated in the future.
+        $base = now()->subMinutes(30);
 
-        $this->say($thieves, $joker, 'Meet at Leblanc. 17:00. Don’t be late.', $today->copy()->setTime(16, 40));
-        $m1 = $this->say($thieves, $users['panther'], 'So, Leblanc at five? I’m claiming the booth. We need a proper game plan for tomorrow.', $today->copy()->setTime(16, 42));
-        $this->say($thieves, $joker, 'I’ll tell Sojiro we’re coming. Coffee’s on me.', $today->copy()->setTime(16, 42));
-        $m2 = $this->say($thieves, $users['queen'], 'I’ll bring my notes. Let’s go over the route together before we make our next move.', $today->copy()->setTime(16, 43));
-        $this->say($thieves, $users['skull'], 'Wait, does a game plan include curry?', $today->copy()->setTime(16, 44));
-        $this->say($thieves, $joker, 'Only if you actually show up on time.', $today->copy()->setTime(16, 45));
-        $this->say($thieves, $users['skull'], 'Okay, okay. I’ll be there!', $today->copy()->setTime(16, 46));
+        $this->say($thieves, $joker, 'Meet at Leblanc. 17:00. Don’t be late.', $base->copy()->addMinutes(0));
+        $m1 = $this->say($thieves, $users['panther'], 'So, Leblanc at five? I’m claiming the booth. We need a proper game plan for tomorrow.', $base->copy()->addMinutes(2));
+        $this->say($thieves, $joker, 'I’ll tell Sojiro we’re coming. Coffee’s on me.', $base->copy()->addMinutes(2));
+        $m2 = $this->say($thieves, $users['queen'], 'I’ll bring my notes. Let’s go over the route together before we make our next move.', $base->copy()->addMinutes(3));
+        $this->say($thieves, $users['skull'], 'Wait, does a game plan include curry?', $base->copy()->addMinutes(4));
+        $this->say($thieves, $joker, 'Only if you actually show up on time.', $base->copy()->addMinutes(5));
+        $this->say($thieves, $users['skull'], 'Okay, okay. I’ll be there!', $base->copy()->addMinutes(6));
 
-        $this->say($direct, $users['skull'], 'You up for ramen after this?', $today->copy()->setTime(16, 32));
-        $this->say($direct, $joker, 'After Leblanc. Let’s get the plan sorted first.', $today->copy()->setTime(16, 34));
+        $this->say($direct, $users['skull'], 'You up for ramen after this?', $base->copy()->addMinutes(-8));
+        $this->say($direct, $joker, 'After Leblanc. Let’s get the plan sorted first.', $base->copy()->addMinutes(-6));
 
-        $m1->conversation->participants()->updateExistingPivot($joker->id, ['last_read_at' => $today->copy()->setTime(16, 41)]);
+        $m1->conversation->participants()->updateExistingPivot($joker->id, ['last_read_at' => $base->copy()->addMinutes(1)]);
 
         // Saved messages
         $plans = SavedCollection::firstOrCreate(['user_id' => $joker->id, 'name' => 'Plans & operations']);
