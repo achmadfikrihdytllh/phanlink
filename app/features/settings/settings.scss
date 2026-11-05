@@ -1,0 +1,150 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--pm-red);
+
+  .pm-pane {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.nav {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.version {
+  margin: 20px 16px;
+  font-size: 7px;
+  line-height: 1.6;
+  color: var(--pm-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+.field,
+.select {
+  width: 100%;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--pm-ink);
+  border: 1px solid var(--pm-line-dark);
+  font: 500 9px/1 var(--pm-font-ui);
+}
+
+.select {
+  width: auto;
+  min-width: 110px;
+  background: var(--pm-ink-2);
+  color: #fff;
+  border-color: var(--pm-line);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--pm-line);
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  strong {
+    font-size: 9px;
+  }
+
+  small {
+    font-size: 8px;
+    color: var(--pm-muted);
+  }
+}
+
+.themes {
+  display: flex;
+  gap: 6px;
+}
+
+.theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--pm-ink-2);
+  border: 1px solid var(--pm-line);
+  color: #fff;
+  font: 800 7px/1 var(--pm-font-ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  i {
+    width: 8px;
+    height: 8px;
+    border: 1px solid #fff;
+  }
+
+  &--on {
+    border-color: var(--pm-red);
+  }
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  font: 700 7px/1 var(--pm-font-ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.link {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.who {
+  text-align: center;
+
+  .pm-avatar {
+    margin: 0 auto 10px;
+  }
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.out {
+  margin-top: 10px;
+}

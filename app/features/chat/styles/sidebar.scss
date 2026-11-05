@@ -1,0 +1,139 @@
+.sidebar {
+    width: 330px;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    border-right: 5px solid #000;
+    position: relative;
+    z-index: 5;
+}
+
+.sidebar::after {
+    content: "";
+    position: absolute;
+    right: -18px;
+    top: 0;
+    width: 30px;
+    height: 100%;
+    background: #000;
+    transform: skew(-12deg);
+    transform-origin: left;
+}
+
+
+.sidebar-header {
+    padding: 26px 24px;
+    border-bottom: 3px solid #1a1a1a;
+}
+
+.logo-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.logo-shadow {
+    position: absolute;
+    inset: 0;
+    background: var(--p5-red);
+    transform: translate(5px, 5px) skewX(-8deg);
+    z-index: 1;
+}
+
+.logo {
+    position: relative;
+    z-index: 2;
+    display: inline-block;
+
+    background: #fff;
+    color: #0a0a0a;
+
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-weight: 900;
+    font-size: 26px;
+    letter-spacing: .02em;
+
+    padding: 6px 16px;
+    transform: skewX(-8deg);
+
+    span {
+        color: var(--p5-red);
+    }
+}
+
+.conversation-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.conversation-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding: 16px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+
+    transition: background .15s ease;
+}
+
+.conversation-item:hover {
+    background: rgba(255, 255, 255, .04);
+}
+
+.conversation-bg {
+    position: absolute;
+    inset: 0;
+    background: var(--p5-red);
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: opacity .15s ease, transform .2s ease;
+    z-index: 0;
+}
+
+.conversation-item.active .conversation-bg {
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+.conversation-item.active {
+    .conversation-name,
+    .conversation-preview {
+        color: #fff;
+    }
+}
+
+.conversation-item > .avatar-card,
+.conversation-item > .conversation-content {
+    position: relative;
+    z-index: 1;
+}
+
+.conversation-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.conversation-name {
+    color: #fff;
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conversation-preview {
+    color: rgba(255, 255, 255, .5);
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

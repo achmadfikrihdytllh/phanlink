@@ -1,0 +1,132 @@
+<pm-page-frame listTone="dark">
+  <div slot="list">
+    <header class="pm-list-head">
+      <h1 class="pm-title">Groups</h1>
+      <button class="pm-icon-btn add" type="button" aria-label="New group">
+        <pm-icon name="plus" [size]="12" />
+      </button>
+    </header>
+    <label class="pm-search">
+      <pm-icon name="search" [size]="11" />
+      <input
+        type="text"
+        placeholder="Find your hideout"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <div class="pm-eyebrow label">Your groups {{ groups.length }}</div>
+    <ul class="items">
+      @for (g of visible(); track g.id) {
+        <li>
+          <button
+            type="button"
+            class="pm-list-item"
+            [class.active]="g.id === selectedId()"
+            (click)="select(g)"
+          >
+            <span class="pm-avatar pm-avatar--light">{{ g.name.charAt(0) }}</span>
+            <span class="pm-list-item__text">
+              <strong>{{ g.name }}</strong>
+              <small>{{ g.members }} members</small>
+              <small>{{ g.blurb }}</small>
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div slot="main" class="page">
+    <header class="pm-hero">
+      <div>
+        <div class="pm-eyebrow">Your groups / The hideout</div>
+        <h2 class="pm-title">{{ selected().name }}</h2>
+      </div>
+      <a class="pm-btn" routerLink="/messages"><span>Open chat</span></a>
+    </header>
+
+    <div class="banner">
+      <pm-icon name="star" [size]="34" />
+      <div>
+        <div class="pm-eyebrow banner__eyebrow">Steal hearts. Stay connected.</div>
+        <h2 class="pm-title">All together now.</h2>
+        <small>{{ selected().members }} members · {{ selected().online }} online · Private group</small>
+      </div>
+    </div>
+
+    <div class="pm-pane pm-scroll">
+      <section class="pm-card meetup">
+        <span class="meetup__time">17:00<small>Today</small></span>
+        <div>
+          <div class="pm-eyebrow">Pinned / Next meetup</div>
+          <h3 class="pm-title">Café Leblanc</h3>
+          <small>Meet at Leblanc, 17:00. Don’t be late. Our usual booth.</small>
+        </div>
+      </section>
+
+      <section class="pm-card">
+        <div class="pm-eyebrow">Your confidants / {{ members.length }}</div>
+        <ul class="members">
+          @for (m of members; track m.id) {
+            <li>
+              <span class="pm-avatar pm-avatar--light">{{ m.name.charAt(0) }}</span>
+              <strong>{{ m.name }}</strong>
+              <span class="code">{{ m.codename }}</span>
+              <span class="state" [class.state--on]="m.status === 'online'">
+                {{ m.status === 'online' ? 'Online' : m.lastSeen }}
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <div slot="aside">
+    <section class="pm-section">
+      <div class="pm-eyebrow">The inner circle</div>
+      <h2 class="pm-title">Group intel</h2>
+      <p>A place for the crew to plan our next move. No strangers. No spoilers. Don’t be late.</p>
+    </section>
+    <section class="pm-section">
+      <div class="pm-eyebrow">Group preferences</div>
+      <div class="pref">
+        Notifications
+        <button
+          type="button"
+          class="pm-toggle"
+          [class.on]="notifications()"
+          (click)="notifications.set(!notifications())"
+          aria-label="Notifications"
+        ></button>
+      </div>
+      <div class="pref">
+        Pin to messages
+        <button
+          type="button"
+          class="pm-toggle"
+          [class.on]="pinToMessages()"
+          (click)="pinToMessages.set(!pinToMessages())"
+          aria-label="Pin to messages"
+        ></button>
+      </div>
+    </section>
+    <section class="pm-section">
+      <div class="pm-eyebrow">Shared intel / {{ files.length }} files</div>
+      @for (f of files; track f.name) {
+        <div class="file">
+          <pm-icon [name]="f.kind === 'image' ? 'image' : 'file'" [size]="12" />
+          <span>
+            <strong>{{ f.name }}</strong>
+            <small>{{ f.meta }}</small>
+          </span>
+          <pm-icon name="download" [size]="11" />
+        </div>
+      }
+    </section>
+    <section class="pm-section actions">
+      <button type="button" class="pm-btn"><span>Invite a confidant</span></button>
+    </section>
+  </div>
+</pm-page-frame>

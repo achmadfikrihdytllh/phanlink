@@ -1,0 +1,49 @@
+<div class="register-page">
+  <div class="register-card">
+    <div class="logo">PHAN<span>LINK</span></div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="register-form">
+      <div class="field">
+        <div class="field-shadow"></div>
+        <input type="text" formControlName="name" placeholder="Nama Lengkap" class="field-input" />
+      </div>
+
+      <div class="field">
+        <div class="field-shadow"></div>
+        <input type="text" formControlName="username" placeholder="Username" class="field-input" />
+      </div>
+
+      <div class="field">
+        <div class="field-shadow"></div>
+        <input type="email" formControlName="email" placeholder="Email" class="field-input" />
+      </div>
+
+      <div class="field">
+        <div class="field-shadow"></div>
+        <input type="password" formControlName="password" placeholder="Password" class="field-input" />
+      </div>
+
+      <div class="field">
+        <div class="field-shadow"></div>
+        <input
+          type="password"
+          formControlName="password_confirmation"
+          placeholder="Konfirmasi Password"
+          class="field-input"
+        />
+      </div>
+
+      @if (errorMessage()) {
+        <div class="error-text">{{ errorMessage() }}</div>
+      }
+
+      <button type="submit" class="submit-btn" [disabled]="loading()">
+        {{ loading() ? 'MEMPROSES...' : 'DAFTAR' }}
+      </button>
+    </form>
+
+    <div class="switch-link">
+      Sudah punya akun? <a routerLink="/login">Masuk di sini</a>
+    </div>
+  </div>
+</div>

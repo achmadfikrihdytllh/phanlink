@@ -1,0 +1,338 @@
+:root {
+  --p5-red: #c40a0a;
+  --p5-red-dark: #8a0707;
+  --p5-black: #111111;
+  --p5-white: #ffffff;
+  --p5-yellow: #f2c200;
+  --p5-gray-text: #888888;
+
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Archivo', sans-serif;
+
+  /* Phantom Messenger design tokens (shell + pages) */
+  --pm-red: #e4182c;
+  --pm-red-deep: #8f0f1b;
+  --pm-ink: #0d0d0f;
+  --pm-ink-2: #17171a;
+  --pm-ink-3: #232327;
+  --pm-paper: #f4f0e9;
+  --pm-paper-2: #e9e4da;
+  --pm-line: rgba(255, 255, 255, 0.12);
+  --pm-line-dark: rgba(13, 13, 15, 0.14);
+  --pm-muted: #8b8b92;
+  --pm-font-ui: 'Inter', 'Archivo', system-ui, sans-serif;
+}
+
+/* ---- shared Phantom Messenger primitives ---- */
+.pm-eyebrow {
+  font: 700 8px/1.2 var(--pm-font-ui);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pm-red);
+}
+
+.pm-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  margin: 0;
+}
+
+.pm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--pm-red);
+  color: #fff;
+  font: 800 9px/1 var(--pm-font-ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transform: skewX(-8deg);
+
+  > * {
+    transform: skewX(8deg);
+  }
+
+  &--dark {
+    background: var(--pm-ink);
+    border: 1px solid var(--pm-line);
+  }
+
+  &--paper {
+    background: var(--pm-paper);
+    color: var(--pm-ink);
+  }
+}
+
+.pm-toggle {
+  width: 22px;
+  height: 12px;
+  border: 0;
+  padding: 2px;
+  background: #3a3a40;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+
+  &::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    transition: transform 0.15s;
+  }
+
+  &.on {
+    background: var(--pm-red);
+
+    &::after {
+      transform: translateX(10px);
+    }
+  }
+}
+
+.pm-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pm-red) transparent;
+}
+
+.pm-avatar {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--pm-ink);
+  color: #fff;
+  border: 1px solid var(--pm-ink);
+  font: 800 10px/1 var(--pm-font-ui);
+
+  &--light {
+    background: #fff;
+    color: var(--pm-ink);
+  }
+
+  &--lg {
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+    background: #fff;
+    color: var(--pm-ink);
+    border: 2px solid var(--pm-ink);
+  }
+}
+
+.pm-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 10px;
+
+  h1 {
+    font-size: 26px;
+  }
+}
+
+.pm-icon-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--pm-ink);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+}
+
+.pm-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 16px;
+  padding: 7px 8px;
+  background: #fff;
+  color: var(--pm-ink);
+  border: 1px solid var(--pm-ink);
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: 500 9px/1 var(--pm-font-ui);
+  }
+}
+
+.pm-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+
+  &.active {
+    background: var(--pm-ink);
+    color: #fff;
+    border-left-color: var(--pm-red);
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    strong {
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    small {
+      font-size: 8px;
+      color: var(--pm-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+/* hero band used on the main column of Settings / Groups / Saved / Contacts */
+.pm-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  background: var(--pm-ink);
+
+  h2 {
+    font-size: 22px;
+    margin-top: 6px;
+  }
+}
+
+.pm-pane {
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pm-card {
+  background: var(--pm-ink);
+  border: 1px solid var(--pm-line);
+  padding: 14px 16px;
+
+  &--paper {
+    background: var(--pm-paper);
+    color: var(--pm-ink);
+    border-color: var(--pm-paper);
+  }
+
+  h3 {
+    font-size: 13px;
+    margin: 0 0 10px;
+  }
+}
+
+.pm-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--pm-line);
+
+  h2 {
+    font-size: 20px;
+    margin-top: 6px;
+  }
+
+  p {
+    margin: 8px 0 0;
+    font-size: 8px;
+    line-height: 1.5;
+    color: var(--pm-muted);
+  }
+}
+
+.pm-label {
+  font: 700 7px/1 var(--pm-font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pm-muted);
+}
+
+.pm-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--pm-ink-2);
+  border: 1px solid var(--pm-line);
+  color: #fff;
+  font: 500 9px/1 var(--pm-font-ui);
+  outline: 0;
+
+  &:focus {
+    border-color: var(--pm-red);
+  }
+}
+
+.pm-tabs {
+  display: flex;
+  gap: 18px;
+  padding: 0 22px;
+  background: var(--pm-ink);
+  border-bottom: 1px solid var(--pm-line);
+
+  button {
+    padding: 10px 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--pm-muted);
+    font: 800 7px/1 var(--pm-font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+
+    &.on {
+      color: var(--pm-red);
+      border-bottom-color: var(--pm-red);
+    }
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--p5-black);
+}
+
+h1,
+h2,
+h3,
+.display-text {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

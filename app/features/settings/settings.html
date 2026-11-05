@@ -1,0 +1,194 @@
+<pm-page-frame>
+  <div slot="list">
+    <header class="pm-list-head">
+      <h1 class="pm-title">Settings</h1>
+    </header>
+    <label class="pm-search">
+      <pm-icon name="search" [size]="11" />
+      <input type="text" placeholder="Find a setting" />
+    </label>
+    <ul class="nav">
+      @for (item of nav; track item.label; let i = $index) {
+        <li>
+          <button type="button" class="pm-list-item" [class.active]="i === 0">
+            <pm-icon [name]="item.icon" [size]="12" />
+            <span class="pm-list-item__text"><strong>{{ item.label }}</strong></span>
+          </button>
+        </li>
+      }
+    </ul>
+    <p class="version">Phanlink Desktop · v1.0.0<br />Made for your inner circle.</p>
+  </div>
+
+  <div slot="main" class="page">
+    <header class="pm-hero">
+      <div>
+        <div class="pm-eyebrow">Preferences / Overview</div>
+        <h2 class="pm-title">Make it yours.</h2>
+      </div>
+      <button class="pm-btn" type="button" (click)="save()">
+        <span>{{ saved() ? 'Saved' : 'Save changes' }}</span>
+      </button>
+    </header>
+
+    <div class="pm-pane pm-scroll">
+      <section class="pm-card pm-card--paper">
+        <h3 class="pm-title">Your account</h3>
+        <div class="grid">
+          <label>
+            <span class="pm-label">Display name</span>
+            <input class="field" [value]="displayName()" readonly />
+          </label>
+          <label>
+            <span class="pm-label">Username</span>
+            <input class="field" [value]="'@' + username()" readonly />
+          </label>
+          <label>
+            <span class="pm-label">Status</span>
+            <input class="field" value="Laying low" readonly />
+          </label>
+        </div>
+      </section>
+
+      <section class="pm-card">
+        <h3 class="pm-title">Appearance</h3>
+        <div class="line">
+          <div>
+            <strong>Choose your style</strong>
+            <small>A little rebellion in each of them.</small>
+          </div>
+          <div class="themes" role="radiogroup" aria-label="Theme">
+            @for (t of themes; track t.id) {
+              <button
+                type="button"
+                role="radio"
+                class="theme"
+                [class.theme--on]="prefs().theme === t.id"
+                [attr.aria-checked]="prefs().theme === t.id"
+                (click)="set('theme', t.id)"
+              >
+                <i [style.background]="t.swatch"></i>{{ t.label }}
+              </button>
+            }
+          </div>
+        </div>
+        <div class="line">
+          <div>
+            <strong>Message density</strong>
+            <small>Space between messages in your conversations.</small>
+          </div>
+          <select
+            class="select"
+            [ngModel]="prefs().density"
+            (ngModelChange)="set('density', $event)"
+          >
+            <option>Comfortable</option>
+            <option>Compact</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="pm-card">
+        <h3 class="pm-title">Notifications</h3>
+        <div class="line">
+          <div>
+            <strong>Desktop notifications</strong>
+            <small>Get a heads-up when a confidant messages you.</small>
+          </div>
+          <button
+            type="button"
+            class="pm-toggle"
+            [class.on]="prefs().desktopNotifications"
+            (click)="toggle('desktopNotifications')"
+            aria-label="Desktop notifications"
+          ></button>
+        </div>
+        <div class="line">
+          <div>
+            <strong>Message previews</strong>
+            <small>Show message text in desktop notifications.</small>
+          </div>
+          <button
+            type="button"
+            class="pm-toggle"
+            [class.on]="prefs().messagePreviews"
+            (click)="toggle('messagePreviews')"
+            aria-label="Message previews"
+          ></button>
+        </div>
+      </section>
+
+      <section class="pm-card">
+        <h3 class="pm-title">Privacy &amp; security</h3>
+        <div class="line">
+          <div>
+            <strong>Who can message me</strong>
+            <small>Keep new conversations within your circle.</small>
+          </div>
+          <select
+            class="select"
+            [ngModel]="prefs().whoCanMessage"
+            (ngModelChange)="set('whoCanMessage', $event)"
+          >
+            <option>Contacts only</option>
+            <option>Everyone</option>
+          </select>
+        </div>
+        <div class="line">
+          <div>
+            <strong>Read receipts</strong>
+            <small>Let confidants know when you’ve seen their message.</small>
+          </div>
+          <button
+            type="button"
+            class="pm-toggle"
+            [class.on]="prefs().readReceipts"
+            (click)="toggle('readReceipts')"
+            aria-label="Read receipts"
+          ></button>
+        </div>
+        <div class="line">
+          <div>
+            <strong>Show online status</strong>
+            <small>Show when you’re in the hideout.</small>
+          </div>
+          <button
+            type="button"
+            class="pm-toggle"
+            [class.on]="prefs().showOnline"
+            (click)="toggle('showOnline')"
+            aria-label="Show online status"
+          ></button>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <span>{{ saved() ? 'All changes saved on this device' : 'You have unsaved changes' }}</span>
+        <button type="button" class="link" (click)="reset()">Reset to defaults</button>
+      </footer>
+    </div>
+  </div>
+
+  <div slot="aside">
+    <section class="pm-section">
+      <div class="pm-eyebrow">Your secret identity</div>
+      <h2 class="pm-title">Account intel</h2>
+    </section>
+    <section class="pm-section who">
+      <span class="pm-avatar pm-avatar--lg">{{ displayName().charAt(0) }}</span>
+      <h2 class="pm-title">{{ displayName() }}</h2>
+      <p>&#64;{{ username() }} · The Phantom Thieves</p>
+    </section>
+    <section class="pm-section">
+      <div class="pm-eyebrow">Trusted device</div>
+      <p class="device"><pm-icon name="device" [size]="12" /> Phanlink Web · Current session</p>
+      <button type="button" class="pm-btn pm-btn--dark out" (click)="signOut()">
+        <span>Sign out</span>
+      </button>
+    </section>
+    <section class="pm-section">
+      <div class="pm-eyebrow">Between confidants</div>
+      <p>Your messages stay in your circle. Review linked devices and control who can reach you.</p>
+    </section>
+  </div>
+</pm-page-frame>

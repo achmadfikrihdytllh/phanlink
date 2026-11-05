@@ -1,0 +1,83 @@
+.input-container {
+    position: relative;
+    padding: 16px 20px;
+    background: #000;
+    border-top: 4px solid #000;
+    z-index: 5;
+}
+
+.input-shadow,
+.input-panel {
+    clip-path: polygon(
+        0 0,
+        calc(100% - 18px) 0,
+        100% 100%,
+        18px 100%
+    );
+}
+
+.input-shadow {
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    right: 20px;
+    bottom: 10px;
+    background: var(--p5-red);
+    transform: translate(6px, 6px);
+}
+
+.input-panel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    background: #111;
+    border: 2px solid #fff;
+    padding: 6px 6px 6px 22px;
+    box-sizing: border-box;
+}
+
+.message-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+
+    color: #fff;
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 10px 0;
+}
+
+.message-input::placeholder {
+    color: rgba(255, 255, 255, .4);
+}
+
+.send-button {
+    flex-shrink: 0;
+    border: none;
+    cursor: pointer;
+
+    background: #fff;
+    color: #0a0a0a;
+
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: .04em;
+
+    padding: 14px 26px;
+    clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%);
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+}
+
+.send-button:hover {
+    background: var(--p5-red);
+    color: #fff;
+}
+
+.send-button:active {
+    transform: scale(.96);
+}

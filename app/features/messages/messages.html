@@ -1,0 +1,157 @@
+<pm-page-frame>
+  <!-- LIST -->
+  <div slot="list" class="list">
+    <header class="list__head">
+      <h1 class="pm-title list__title">Messages</h1>
+      <button class="icon-btn" type="button" aria-label="New message">
+        <pm-icon name="compose" [size]="12" />
+      </button>
+    </header>
+
+    <label class="search">
+      <pm-icon name="search" [size]="11" />
+      <input
+        type="text"
+        placeholder="Find your confidants"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+      />
+    </label>
+
+    <div class="tabs">
+      <span class="tabs__tab tabs__tab--on">All {{ conversations().length }}</span>
+    </div>
+
+    <div class="pm-eyebrow list__label">Your confidants</div>
+
+    <ul class="convos pm-scroll">
+      @for (c of filtered(); track c.id) {
+        <li>
+          <button
+            type="button"
+            class="convo"
+            [class.convo--active]="selected()?.id === c.id"
+            (click)="open(c)"
+          >
+            <span class="avatar">{{ initial(c.name) }}</span>
+            <span class="convo__text">
+              <strong>{{ c.name ?? 'Conversation' }}</strong>
+              <small>{{ previewOf(c) }}</small>
+            </span>
+            @if (c.latest_message; as last) {
+              <time class="convo__time">{{ last.created_at | date: 'HH:mm' }}</time>
+            }
+          </button>
+        </li>
+      } @empty {
+        <li class="empty">No conversations found.</li>
+      }
+    </ul>
+  </div>
+
+  <!-- MAIN -->
+  <div slot="main" class="chat">
+    @if (selected(); as convo) {
+      <header class="chat__head">
+        <span class="avatar avatar--lg">{{ initial(convo.name) }}</span>
+        <div class="chat__who">
+          <h2 class="pm-title">{{ convo.name }}</h2>
+          <small>{{ convo.participants.length }} members · {{ onlineCount() }} online</small>
+        </div>
+        <div class="chat__tools">
+          <pm-icon name="phone" [size]="13" />
+          <pm-icon name="search" [size]="13" />
+        </div>
+      </header>
+
+      <div class="feed pm-scroll" #feed>
+        @if (loading()) {
+          <p class="feed__note">Loading…</p>
+        }
+
+        @for (m of messages(); track m.id) {
+          <div class="row" [class.row--mine]="isMine(m)">
+            <span class="row__meta">
+              {{ isMine(m) ? 'You' : m.sender.name }}
+              <time>{{ m.created_at | date: 'HH:mm' }}</time>
+            </span>
+            <div class="row__line">
+              @if (!isMine(m)) {
+                <span class="avatar">{{ initial(m.sender.name) }}</span>
+              }
+              <p class="bubble">{{ m.body }}</p>
+            </div>
+          </div>
+        } @empty {
+          @if (!loading()) {
+            <p class="feed__note">No messages yet. Make the first move.</p>
+          }
+        }
+      </div>
+
+      <footer class="composer">
+        <span class="pm-eyebrow composer__label">Your next move.</span>
+        <div class="composer__box">
+          <input
+            type="text"
+            [placeholder]="'Message ' + convo.name"
+            [ngModel]="draft()"
+            (ngModelChange)="draft.set($event)"
+            (keydown.enter)="send()"
+          />
+          <button class="pm-btn" type="button" (click)="send()">
+            <span>Send</span>
+          </button>
+        </div>
+        <small class="composer__hint">Enter to send</small>
+      </footer>
+    } @else {
+      <div class="chat__empty">
+        <h2 class="pm-title">Phanlink</h2>
+        <p>Pick a confidant to start talking.</p>
+      </div>
+    }
+  </div>
+
+  <!-- ASIDE -->
+  <div slot="aside" class="intel">
+    @if (selected(); as convo) {
+      <div class="intel__section">
+        <div class="pm-eyebrow">The inner circle</div>
+        <h2 class="pm-title intel__title">Crew intel</h2>
+      </div>
+
+      <div class="intel__section">
+        <div class="pm-eyebrow">In the hideout · {{ onlineCount() }} online</div>
+        <ul class="members">
+          @for (p of convo.participants; track p.id) {
+            <li>
+              <span class="avatar">{{ initial(p.name) }}</span>
+              <span class="members__text">
+                <strong>{{ p.name }}</strong>
+                <small>{{ p.role === 'admin' ? 'Leader' : p.status }}</small>
+              </span>
+              <i class="dot" [class.dot--on]="p.status === 'online'"></i>
+            </li>
+          }
+        </ul>
+      </div>
+
+      <div class="intel__section">
+        <div class="pm-eyebrow">Shared intel</div>
+        @for (f of sharedFiles(); track f.id) {
+          <div class="file">
+            <pm-icon name="file" [size]="12" />
+            <span class="file__text">
+              <strong>{{ fileName(f.file_path) }}</strong>
+              <small>{{ size(f.file_size) }}</small>
+            </span>
+            <pm-icon name="download" [size]="11" />
+          </div>
+        } @empty {
+          <p class="intel__empty">Nothing shared yet.</p>
+        }
+      </div>
+    }
+  </div>
+</pm-page-frame>

@@ -1,0 +1,2076 @@
+From 6c3398456435e4cb781f4e1d49bd9b4ebd59bc9d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 06:52:23 +0700
+Subject: [PATCH] feat(api): endpoints for Phantom Messenger pages (groups,
+ contacts, saved, search, settings)
+
+- Add contacts, saved collections/messages and user settings (migrations, models, services, controllers, resources)
+- Add /groups, conversation preferences (mute/pin), group invites and conversation attachments
+- Add unread_count, is_muted, is_pinned, description to the conversation resource
+- Register /broadcasting/auth with Sanctum, add broadcasting config, broadcast MessageSent immediately
+- Keep user presence (status/last_seen_at) in sync on login/logout
+- CORS for the Angular origin; .env.example with Reverb key matching the frontend
+- Demo seeder (login joker / password) and feature tests; README setup + endpoint table
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013nAYnSuKh83gFwTMS3A7jm
+---
+ .env.example                                  |  19 +-
+ README.md                                     | Bin 3935 -> 5828 bytes
+ app/Events/MessageSent.php                    |   5 +-
+ .../Controllers/Api/ContactController.php     |  80 ++++++++
+ .../Api/ConversationController.php            |  59 ++++++
+ app/Http/Controllers/Api/SavedController.php  |  89 +++++++++
+ app/Http/Controllers/Api/SearchController.php |  60 ++++++
+ .../Controllers/Api/SettingController.php     |  60 ++++++
+ app/Http/Resources/AttachmentResource.php     |  29 +++
+ app/Http/Resources/ContactResource.php        |  31 +++
+ app/Http/Resources/ConversationResource.php   |  12 ++
+ app/Http/Resources/SavedMessageResource.php   |  33 +++
+ app/Http/Resources/SettingResource.php        |  23 +++
+ app/Models/Contact.php                        |  39 ++++
+ app/Models/Conversation.php                   |   3 +-
+ app/Models/ConversationParticipant.php        |   2 +
+ app/Models/SavedCollection.php                |  28 +++
+ app/Models/SavedMessage.php                   |  33 +++
+ app/Models/User.php                           |  24 ++-
+ app/Models/UserSetting.php                    |  38 ++++
+ app/Services/AuthService.php                  |   4 +
+ app/Services/ContactService.php               |  99 +++++++++
+ app/Services/ConversationService.php          | 101 ++++++++++
+ app/Services/SavedService.php                 | 105 ++++++++++
+ app/Services/SearchService.php                |  70 +++++++
+ app/Services/SettingService.php               |  23 +++
+ bootstrap/app.php                             |   6 +
+ config/broadcasting.php                       |  45 +++++
+ config/cors.php                               |   4 +-
+ database/factories/UserFactory.php            |   1 +
+ ...escription_and_pinned_to_conversations.php |  30 +++
+ ...026_11_04_100100_create_contacts_table.php |  29 +++
+ ...04_100200_create_saved_messages_tables.php |  36 ++++
+ ...1_04_100300_create_user_settings_table.php |  29 +++
+ database/seeders/DatabaseSeeder.php           | 128 +++++++++++-
+ routes/api.php                                |  27 +++
+ tests/Feature/PhantomApiTest.php              | 189 ++++++++++++++++++
+ 37 files changed, 1574 insertions(+), 19 deletions(-)
+ create mode 100644 app/Http/Controllers/Api/ContactController.php
+ create mode 100644 app/Http/Controllers/Api/SavedController.php
+ create mode 100644 app/Http/Controllers/Api/SearchController.php
+ create mode 100644 app/Http/Controllers/Api/SettingController.php
+ create mode 100644 app/Http/Resources/AttachmentResource.php
+ create mode 100644 app/Http/Resources/ContactResource.php
+ create mode 100644 app/Http/Resources/SavedMessageResource.php
+ create mode 100644 app/Http/Resources/SettingResource.php
+ create mode 100644 app/Models/Contact.php
+ create mode 100644 app/Models/SavedCollection.php
+ create mode 100644 app/Models/SavedMessage.php
+ create mode 100644 app/Models/UserSetting.php
+ create mode 100644 app/Services/ContactService.php
+ create mode 100644 app/Services/SavedService.php
+ create mode 100644 app/Services/SearchService.php
+ create mode 100644 app/Services/SettingService.php
+ create mode 100644 config/broadcasting.php
+ create mode 100644 database/migrations/2026_11_04_100000_add_description_and_pinned_to_conversations.php
+ create mode 100644 database/migrations/2026_11_04_100100_create_contacts_table.php
+ create mode 100644 database/migrations/2026_11_04_100200_create_saved_messages_tables.php
+ create mode 100644 database/migrations/2026_11_04_100300_create_user_settings_table.php
+ create mode 100644 tests/Feature/PhantomApiTest.php
+
+diff --git a/.env.example b/.env.example
+index c0660ea..1b17dfa 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,8 +1,11 @@
+-APP_NAME=Laravel
++APP_NAME=Phanlink
+ APP_ENV=local
+ APP_KEY=
+ APP_DEBUG=true
+-APP_URL=http://localhost
++APP_URL=http://localhost:8000
++
++# Origin of the Angular app (used by CORS)
++FRONTEND_URL=http://localhost:4200
+ 
+ APP_LOCALE=en
+ APP_FALLBACK_LOCALE=en
+@@ -33,10 +36,20 @@ SESSION_ENCRYPT=false
+ SESSION_PATH=/
+ SESSION_DOMAIN=null
+ 
+-BROADCAST_CONNECTION=log
++# Realtime chat (Laravel Reverb). Run: php artisan reverb:start
++BROADCAST_CONNECTION=reverb
+ FILESYSTEM_DISK=local
+ QUEUE_CONNECTION=database
+ 
++REVERB_APP_ID=phanlink
++REVERB_APP_KEY=a1int0v4sq8h21egbyfk
++REVERB_APP_SECRET=phanlink-local-secret
++REVERB_HOST=localhost
++REVERB_PORT=8080
++REVERB_SCHEME=http
++REVERB_SERVER_HOST=0.0.0.0
++REVERB_SERVER_PORT=8080
++
+ CACHE_STORE=database
+ # CACHE_PREFIX=
+ 
+diff --git a/README.md b/README.md
+index 4b66ddbe4ca7cb0bf0cb52cd87437660521136a2..922bb6ec8fe60fb95a96a2a053ab6fe850ca405e 100644
+GIT binary patch
+delta 1915
+zcmb7F?`q>l5dW?(eS<O(2zIa~=O{E7j_aM{Cdb_+#&HUz6z^CXTN_Ec%Ff8wa4veK
+zK1AQ6uTpmH#CARuDiG|<&fnkscK4s}|L*@a|E`UqlM|TaXv9|Vg_y~#$PIx>ni?7-
+zO#w@1jgZOUy;(ISx+qdgEs*mltsy3}j_D7q>XL#GrM9XqlLKv7uq>lGuK}HCMgs*s
+z4Oe8yp-?2YZPFYv6kH%v^1O)ovD8Aa`%d8U!+dmmb2A>zKHlEE-R>TRt@O%Agnpli
+zvZE~~w|)tA^qoN7iqyj-Ie+tGJctMJ`S4;e7#z7fT9aE0S<uOmH=KYYEJat;gReYH
+zlG3JF=9Xo6F}N6bkfP|bU1<XuRTerKIt{))a@`@Eov8=g7UUEpplW3PYF(zz&Y**W
+z4X6iOko&35(UjU0u@H;u#?hz7q#CB7EXXvd!wD$psOk8Z@$|#|{bVx#H2zg}ftw6-
+zV5|@_GAlHo*rf@XwQij?6&c|m?SxoZ`N+?6k0bT-^!8>pzPX&=Pd_W@WVFPl6j1pV
+zzkTOFycrBs7b>4e8V94>>0Rteb^>FQ)m9sU4pY^j&#-9mE9RgQthMR^Hj;z-K<GRw
+zVhb{GhbEP#f`ZZpOAVz5G;y@jEabXTw1I0Zu|flzeTq%A>G%8Lk2ZnVxFUuPsH^b|
+zlGK_tIYw!<HLQBC)n1!?)7hU%MI2nc&E)p((D#2DIl@f&!eF|i4Q!y@1zk9cS&A&$
+ztP&4{g3h8T(1ZyGc)C4Eb2NrZP_@%*6zae9p{<F1y{ZSaCL^HYUF9*8k!{{9XPbHt
+z!phmEt^c!o6u~qP1PK7VpN*~$(Ay(WJ6e(>lM;IhYMxh(Q0AR9&ueWAWxj*g7zX^e
+zNZ0;~NOg_I)31YBr42AXU^jp^vPLkKefjB5aX7tTk$h{I+{XaMK3~{6ZbC3^<-i;|
+z%2*+9WOP~>tit+LGmFxu#jcyn@#pbu91wYxI@ElJYsy|o$6k7u+Onk7LpRsiX)8}P
+zoj!)T0=t5d7oS51ML@`Fug0_Fz%bcI3%wmX9c*p`Y>OgvX}+tfg@l9r?(y`HOun|I
+zv(;&aLi7Df?5VGqfBXII^T~KoEOqIp?-_na;+ec37Vi|H(fgUt8Z25r>Vlpi#fr)i
+zGWCuwD$zB8x@U3|N6YQCw0ng-Eus+$3YsBk)=-mwVKPmoaJpvg&(8Cc(t`)gyopKC
+zX>W!GmYPc;2SNoyrb{fIkKE*X0w~DQ`Cu^E1r~A(bPZIx)CG8s#c&@UNS_22#OQj!
+Ux~kEDHkl8)&nM(+&6vm0zq!Dd82|tP
+
+delta 7
+OcmX@2dtYutJU;*qAp;En
+
+diff --git a/app/Events/MessageSent.php b/app/Events/MessageSent.php
+index 6cc98e6..54a81d3 100644
+--- a/app/Events/MessageSent.php
++++ b/app/Events/MessageSent.php
+@@ -7,11 +7,12 @@
+ use Illuminate\Broadcasting\InteractsWithSockets;
+ use Illuminate\Broadcasting\PresenceChannel;
+ use Illuminate\Broadcasting\PrivateChannel;
+-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
++use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+ use Illuminate\Foundation\Events\Dispatchable;
+ use Illuminate\Queue\SerializesModels;
+ 
+-class MessageSent implements ShouldBroadcast
++// ShouldBroadcastNow: sent immediately, so realtime works without a queue worker.
++class MessageSent implements ShouldBroadcastNow
+ {
+     use Dispatchable, InteractsWithSockets, SerializesModels;
+ 
+diff --git a/app/Http/Controllers/Api/ContactController.php b/app/Http/Controllers/Api/ContactController.php
+new file mode 100644
+index 0000000..85c6dd5
+--- /dev/null
++++ b/app/Http/Controllers/Api/ContactController.php
+@@ -0,0 +1,80 @@
++<?php
++
++namespace App\Http\Controllers\Api;
++
++use App\Http\Controllers\Controller;
++use App\Http\Resources\AttachmentResource;
++use App\Http\Resources\ContactResource;
++use App\Http\Resources\ConversationResource;
++use App\Http\Resources\MessageResource;
++use App\Services\ContactService;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++
++/** Contacts ("confidants"). The {userId} in URLs is the contact's *user* id. */
++class ContactController extends Controller
++{
++    public function __construct(protected ContactService $contactService)
++    {
++    }
++
++    public function index(Request $request): JsonResponse
++    {
++        return response()->json([
++            'contacts' => ContactResource::collection($this->contactService->list($request->user())),
++        ]);
++    }
++
++    public function store(Request $request): JsonResponse
++    {
++        $data = $request->validate([
++            'user_id' => ['required', 'integer', 'exists:users,id'],
++            'nickname' => ['nullable', 'string', 'max:50'],
++        ]);
++
++        $contact = $this->contactService->add($request->user(), $data['user_id'], $data['nickname'] ?? null);
++
++        return response()->json([
++            'message' => 'Kontak ditambahkan.',
++            'contact' => new ContactResource($contact),
++        ], 201);
++    }
++
++    /** Profile page: the contact plus shared groups, shared files and the last exchange. */
++    public function show(Request $request, int $userId): JsonResponse
++    {
++        $contact = $this->contactService->find($request->user(), $userId);
++        $detail = $this->contactService->detail($request->user(), $contact);
++
++        return response()->json([
++            'contact' => new ContactResource($contact),
++            'conversation_id' => $detail['conversation_id'],
++            'groups_in_common' => ConversationResource::collection($detail['groups_in_common']),
++            'shared_files' => AttachmentResource::collection($detail['shared_files']),
++            'last_exchange' => MessageResource::collection($detail['last_exchange']),
++        ]);
++    }
++
++    public function update(Request $request, int $userId): JsonResponse
++    {
++        $data = $request->validate([
++            'nickname' => ['sometimes', 'nullable', 'string', 'max:50'],
++            'note' => ['sometimes', 'nullable', 'string', 'max:500'],
++            'is_muted' => ['sometimes', 'boolean'],
++            'is_blocked' => ['sometimes', 'boolean'],
++        ]);
++
++        $contact = $this->contactService->find($request->user(), $userId);
++
++        return response()->json([
++            'contact' => new ContactResource($this->contactService->update($contact, $data)),
++        ]);
++    }
++
++    public function destroy(Request $request, int $userId): JsonResponse
++    {
++        $this->contactService->remove($this->contactService->find($request->user(), $userId));
++
++        return response()->json(['message' => 'Kontak dihapus.']);
++    }
++}
+diff --git a/app/Http/Controllers/Api/ConversationController.php b/app/Http/Controllers/Api/ConversationController.php
+index 1611ed4..61bb0cc 100644
+--- a/app/Http/Controllers/Api/ConversationController.php
++++ b/app/Http/Controllers/Api/ConversationController.php
+@@ -5,7 +5,9 @@
+ use App\Http\Controllers\Controller;
+ use App\Http\Requests\CreateGroupRequest;
+ use App\Http\Requests\StartPrivateConversationRequest;
++use App\Http\Resources\AttachmentResource;
+ use App\Http\Resources\ConversationResource;
++use App\Models\Conversation;
+ use App\Services\ConversationService;
+ use Illuminate\Http\JsonResponse;
+ use Illuminate\Http\Request;
+@@ -51,6 +53,63 @@ public function createGroup(CreateGroupRequest $request): JsonResponse
+         ], 201);
+     }
+ 
++    /** Group conversations only: the "Groups" page. */
++    public function groups(Request $request): JsonResponse
++    {
++        return response()->json([
++            'groups' => ConversationResource::collection(
++                $this->conversationService->groupsForUser($request->user())
++            ),
++        ]);
++    }
++
++    /** Mute / pin a conversation for the signed-in user. */
++    public function preferences(Request $request, int $id): JsonResponse
++    {
++        $data = $request->validate([
++            'is_muted' => ['sometimes', 'boolean'],
++            'is_pinned' => ['sometimes', 'boolean'],
++        ]);
++
++        $conversation = Conversation::findOrFail($id);
++
++        return response()->json([
++            'conversation' => new ConversationResource(
++                $this->conversationService->updatePreferences($request->user(), $conversation, $data)
++            ),
++        ]);
++    }
++
++    /** Invite people to a group (admins only). */
++    public function addParticipants(Request $request, int $id): JsonResponse
++    {
++        $data = $request->validate([
++            'user_ids' => ['required', 'array', 'min:1'],
++            'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
++        ]);
++
++        $conversation = Conversation::findOrFail($id);
++
++        return response()->json([
++            'message' => 'Anggota ditambahkan.',
++            'conversation' => new ConversationResource(
++                $this->conversationService->addParticipants($request->user(), $conversation, $data['user_ids'])
++            ),
++        ]);
++    }
++
++    /** Files shared in this conversation. */
++    public function attachments(Request $request, int $id): JsonResponse
++    {
++        $conversation = Conversation::findOrFail($id);
++
++        return response()->json([
++            'attachments' => AttachmentResource::collection(
++                $this->conversationService->attachments($request->user(), $conversation)
++            ),
++        ]);
++    }
++
+     public function show(Request $request, int $id): JsonResponse
+     {
+         $conversation = $this->conversationService->getDetail($request->user(), $id);
+diff --git a/app/Http/Controllers/Api/SavedController.php b/app/Http/Controllers/Api/SavedController.php
+new file mode 100644
+index 0000000..79f0da9
+--- /dev/null
++++ b/app/Http/Controllers/Api/SavedController.php
+@@ -0,0 +1,89 @@
++<?php
++
++namespace App\Http\Controllers\Api;
++
++use App\Http\Controllers\Controller;
++use App\Http\Resources\SavedMessageResource;
++use App\Services\SavedService;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++
++class SavedController extends Controller
++{
++    public function __construct(protected SavedService $savedService)
++    {
++    }
++
++    /** Filters: collection_id, type (all|messages|files), q. */
++    public function index(Request $request): JsonResponse
++    {
++        $filters = $request->validate([
++            'collection_id' => ['nullable', 'integer'],
++            'type' => ['nullable', 'in:all,messages,files'],
++            'q' => ['nullable', 'string', 'max:100'],
++        ]);
++
++        $user = $request->user();
++
++        return response()->json([
++            'saved' => SavedMessageResource::collection($this->savedService->list($user, $filters)),
++            'collections' => $this->collectionsPayload($user),
++            'total' => $this->savedService->total($user),
++        ]);
++    }
++
++    public function store(Request $request): JsonResponse
++    {
++        $data = $request->validate([
++            'message_id' => ['required', 'integer', 'exists:messages,id'],
++            'collection_id' => ['nullable', 'integer'],
++        ]);
++
++        $saved = $this->savedService->save($request->user(), $data['message_id'], $data['collection_id'] ?? null);
++
++        return response()->json([
++            'message' => 'Pesan disimpan.',
++            'saved' => new SavedMessageResource($saved),
++        ], 201);
++    }
++
++    public function destroy(Request $request, int $id): JsonResponse
++    {
++        $this->savedService->remove($request->user(), $id);
++
++        return response()->json(['message' => 'Pesan dihapus dari tersimpan.']);
++    }
++
++    public function collections(Request $request): JsonResponse
++    {
++        return response()->json(['collections' => $this->collectionsPayload($request->user())]);
++    }
++
++    public function storeCollection(Request $request): JsonResponse
++    {
++        $data = $request->validate(['name' => ['required', 'string', 'max:50']]);
++
++        $collection = $this->savedService->createCollection($request->user(), $data['name']);
++
++        return response()->json([
++            'message' => 'Koleksi dibuat.',
++            'collection' => ['id' => $collection->id, 'name' => $collection->name, 'count' => 0],
++        ], 201);
++    }
++
++    public function destroyCollection(Request $request, int $id): JsonResponse
++    {
++        $this->savedService->deleteCollection($request->user(), $id);
++
++        return response()->json(['message' => 'Koleksi dihapus.']);
++    }
++
++    private function collectionsPayload($user)
++    {
++        return $this->savedService->collections($user)->map(fn ($c) => [
++            'id' => $c->id,
++            'name' => $c->name,
++            'count' => $c->saved_messages_count,
++        ]);
++    }
++}
+diff --git a/app/Http/Controllers/Api/SearchController.php b/app/Http/Controllers/Api/SearchController.php
+new file mode 100644
+index 0000000..e9b3a4d
+--- /dev/null
++++ b/app/Http/Controllers/Api/SearchController.php
+@@ -0,0 +1,60 @@
++<?php
++
++namespace App\Http\Controllers\Api;
++
++use App\Http\Controllers\Controller;
++use App\Http\Resources\AttachmentResource;
++use App\Http\Resources\MessageResource;
++use App\Services\ConversationService;
++use App\Services\SearchService;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++
++class SearchController extends Controller
++{
++    public function __construct(
++        protected SearchService $searchService,
++        protected ConversationService $conversationService,
++    ) {
++    }
++
++    public function index(Request $request): JsonResponse
++    {
++        $data = $request->validate([
++            'q' => ['required', 'string', 'min:1', 'max:100'],
++            'conversation_id' => ['nullable', 'integer'],
++            'from' => ['nullable', 'integer'],
++            'date_from' => ['nullable', 'date'],
++            'date_to' => ['nullable', 'date'],
++            'types' => ['nullable', 'array'],
++            'types.*' => ['in:messages,files'],
++        ]);
++
++        $user = $request->user();
++        $result = $this->searchService->search($user, trim($data['q']), $data);
++
++        return response()->json([
++            'query' => $data['q'],
++            'messages' => $result['messages']->map(fn ($m) => [
++                'message' => new MessageResource($m),
++                'conversation' => [
++                    'id' => $m->conversation->id,
++                    'name' => $this->conversationService->displayName($m->conversation, $user),
++                    'type' => $m->conversation->type,
++                ],
++            ])->values(),
++            'files' => $result['files']->map(fn ($a) => [
++                'attachment' => new AttachmentResource($a),
++                'conversation' => [
++                    'id' => $a->message->conversation->id,
++                    'name' => $this->conversationService->displayName($a->message->conversation, $user),
++                    'type' => $a->message->conversation->type,
++                ],
++            ])->values(),
++            'counts' => [
++                'messages' => $result['messages']->count(),
++                'files' => $result['files']->count(),
++            ],
++        ]);
++    }
++}
+diff --git a/app/Http/Controllers/Api/SettingController.php b/app/Http/Controllers/Api/SettingController.php
+new file mode 100644
+index 0000000..11a3c2a
+--- /dev/null
++++ b/app/Http/Controllers/Api/SettingController.php
+@@ -0,0 +1,60 @@
++<?php
++
++namespace App\Http\Controllers\Api;
++
++use App\Http\Controllers\Controller;
++use App\Http\Resources\SettingResource;
++use App\Services\SettingService;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++
++class SettingController extends Controller
++{
++    public function __construct(protected SettingService $settingService)
++    {
++    }
++
++    public function show(Request $request): JsonResponse
++    {
++        return response()->json([
++            'settings' => new SettingResource($this->settingService->get($request->user())),
++        ]);
++    }
++
++    /**
++     * Accepts the same camelCase keys the Angular Settings page uses, so the
++     * frontend can send its `Prefs` object as-is.
++     */
++    public function update(Request $request): JsonResponse
++    {
++        $data = $request->validate([
++            'theme' => ['sometimes', 'in:phantom,midnight,paper'],
++            'density' => ['sometimes', 'in:comfortable,compact'],
++            'desktopNotifications' => ['sometimes', 'boolean'],
++            'messagePreviews' => ['sometimes', 'boolean'],
++            'whoCanMessage' => ['sometimes', 'in:contacts,everyone'],
++            'readReceipts' => ['sometimes', 'boolean'],
++            'showOnline' => ['sometimes', 'boolean'],
++        ]);
++
++        $columns = [
++            'theme' => 'theme',
++            'density' => 'density',
++            'desktopNotifications' => 'desktop_notifications',
++            'messagePreviews' => 'message_previews',
++            'whoCanMessage' => 'who_can_message',
++            'readReceipts' => 'read_receipts',
++            'showOnline' => 'show_online_status',
++        ];
++
++        $mapped = [];
++        foreach ($data as $key => $value) {
++            $mapped[$columns[$key]] = $value;
++        }
++
++        return response()->json([
++            'message' => 'Pengaturan disimpan.',
++            'settings' => new SettingResource($this->settingService->update($request->user(), $mapped)),
++        ]);
++    }
++}
+diff --git a/app/Http/Resources/AttachmentResource.php b/app/Http/Resources/AttachmentResource.php
+new file mode 100644
+index 0000000..c4d88eb
+--- /dev/null
++++ b/app/Http/Resources/AttachmentResource.php
+@@ -0,0 +1,29 @@
++<?php
++
++namespace App\Http\Resources;
++
++use Illuminate\Http\Request;
++use Illuminate\Http\Resources\Json\JsonResource;
++
++/** A file shared in a conversation, with enough context to show "who / where / when". */
++class AttachmentResource extends JsonResource
++{
++    public function toArray(Request $request): array
++    {
++        return [
++            'id' => $this->id,
++            'name' => basename($this->file_path),
++            'file_path' => $this->file_path,
++            'file_type' => $this->file_type,
++            'file_size' => $this->file_size,
++            'thumbnail_path' => $this->thumbnail_path,
++            'message_id' => $this->message_id,
++            'conversation_id' => $this->message->conversation_id,
++            'sender' => [
++                'id' => $this->message->sender->id,
++                'name' => $this->message->sender->name,
++            ],
++            'created_at' => $this->created_at,
++        ];
++    }
++}
+diff --git a/app/Http/Resources/ContactResource.php b/app/Http/Resources/ContactResource.php
+new file mode 100644
+index 0000000..13296cb
+--- /dev/null
++++ b/app/Http/Resources/ContactResource.php
+@@ -0,0 +1,31 @@
++<?php
++
++namespace App\Http\Resources;
++
++use Illuminate\Http\Request;
++use Illuminate\Http\Resources\Json\JsonResource;
++
++/** A row of the signed-in user's contact list. `id` is the *user* id of the contact. */
++class ContactResource extends JsonResource
++{
++    public function toArray(Request $request): array
++    {
++        $user = $this->contact;
++
++        return [
++            'id' => $user->id,
++            'name' => $user->name,
++            'username' => $user->username,
++            'handle' => '@'.$user->username,
++            'codename' => $this->nickname ?: $user->username,
++            'avatar' => $user->avatar,
++            'bio' => $user->bio,
++            'status' => $user->status,
++            'last_seen_at' => $user->last_seen_at,
++            'note' => $this->note,
++            'is_muted' => $this->is_muted,
++            'is_blocked' => $this->is_blocked,
++            'contact_since' => $this->created_at,
++        ];
++    }
++}
+diff --git a/app/Http/Resources/ConversationResource.php b/app/Http/Resources/ConversationResource.php
+index 60f15a7..7fa8ad0 100644
+--- a/app/Http/Resources/ConversationResource.php
++++ b/app/Http/Resources/ConversationResource.php
+@@ -22,12 +22,24 @@ public function toArray(Request $request): array
+             $displayAvatar = $otherParticipant?->avatar;
+         }
+ 
++        // Pivot row of the signed-in user (read marker, mute/pin preferences)
++        $mine = $this->participants->firstWhere('id', $authUserId)?->pivot;
++
++        $unread = $this->messages()
++            ->where('sender_id', '!=', $authUserId)
++            ->when($mine?->last_read_at, fn ($q, $readAt) => $q->where('created_at', '>', $readAt))
++            ->count();
++
+         return [
+             'id' => $this->id,
+             'type' => $this->type,
+             'name' => $displayName,
+             'avatar' => $displayAvatar,
++            'description' => $this->description,
+             'created_by' => $this->created_by,
++            'unread_count' => $unread,
++            'is_muted' => (bool) ($mine?->is_muted ?? false),
++            'is_pinned' => (bool) ($mine?->is_pinned ?? false),
+             'participants' => $this->whenLoaded('participants', function () {
+                 return $this->participants->map(fn ($user) => [
+                     'id' => $user->id,
+diff --git a/app/Http/Resources/SavedMessageResource.php b/app/Http/Resources/SavedMessageResource.php
+new file mode 100644
+index 0000000..bdb776f
+--- /dev/null
++++ b/app/Http/Resources/SavedMessageResource.php
+@@ -0,0 +1,33 @@
++<?php
++
++namespace App\Http\Resources;
++
++use Illuminate\Http\Request;
++use Illuminate\Http\Resources\Json\JsonResource;
++
++class SavedMessageResource extends JsonResource
++{
++    public function toArray(Request $request): array
++    {
++        $message = $this->message;
++        $conversation = $message->conversation;
++
++        $groupName = $conversation->type === 'private'
++            ? $conversation->participants->firstWhere('id', '!=', $request->user()->id)?->name
++            : $conversation->name;
++
++        return [
++            'id' => $this->id,
++            'saved_at' => $this->created_at,
++            'collection' => $this->collection
++                ? ['id' => $this->collection->id, 'name' => $this->collection->name]
++                : null,
++            'conversation' => [
++                'id' => $conversation->id,
++                'name' => $groupName,
++                'type' => $conversation->type,
++            ],
++            'message' => new MessageResource($message),
++        ];
++    }
++}
+diff --git a/app/Http/Resources/SettingResource.php b/app/Http/Resources/SettingResource.php
+new file mode 100644
+index 0000000..886a5ef
+--- /dev/null
++++ b/app/Http/Resources/SettingResource.php
+@@ -0,0 +1,23 @@
++<?php
++
++namespace App\Http\Resources;
++
++use Illuminate\Http\Request;
++use Illuminate\Http\Resources\Json\JsonResource;
++
++/** Keys are camelCase on purpose: they match the Angular Settings page `Prefs` type. */
++class SettingResource extends JsonResource
++{
++    public function toArray(Request $request): array
++    {
++        return [
++            'theme' => $this->theme,
++            'density' => $this->density,
++            'desktopNotifications' => $this->desktop_notifications,
++            'messagePreviews' => $this->message_previews,
++            'whoCanMessage' => $this->who_can_message,
++            'readReceipts' => $this->read_receipts,
++            'showOnline' => $this->show_online_status,
++        ];
++    }
++}
+diff --git a/app/Models/Contact.php b/app/Models/Contact.php
+new file mode 100644
+index 0000000..25608e2
+--- /dev/null
++++ b/app/Models/Contact.php
+@@ -0,0 +1,39 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++
++class Contact extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'user_id',
++        'contact_id',
++        'nickname',
++        'note',
++        'is_muted',
++        'is_blocked',
++    ];
++
++    protected function casts(): array
++    {
++        return [
++            'is_muted' => 'boolean',
++            'is_blocked' => 'boolean',
++        ];
++    }
++
++    public function owner(): BelongsTo
++    {
++        return $this->belongsTo(User::class, 'user_id');
++    }
++
++    public function contact(): BelongsTo
++    {
++        return $this->belongsTo(User::class, 'contact_id');
++    }
++}
+diff --git a/app/Models/Conversation.php b/app/Models/Conversation.php
+index 6ea699b..7208468 100644
+--- a/app/Models/Conversation.php
++++ b/app/Models/Conversation.php
+@@ -16,6 +16,7 @@ class Conversation extends Model
+         'type',
+         'name',
+         'avatar',
++        'description',
+         'created_by',
+     ];
+ 
+@@ -27,7 +28,7 @@ public function creator(): BelongsTo
+     public function participants(): BelongsToMany
+     {
+         return $this->belongsToMany(User::class, 'conversation_participants')
+-            ->withPivot(['role', 'last_read_at', 'is_muted', 'joined_at'])
++            ->withPivot(['role', 'last_read_at', 'is_muted', 'is_pinned', 'joined_at'])
+             ->withTimestamps();
+     }
+ 
+diff --git a/app/Models/ConversationParticipant.php b/app/Models/ConversationParticipant.php
+index 972a998..43b1cf4 100644
+--- a/app/Models/ConversationParticipant.php
++++ b/app/Models/ConversationParticipant.php
+@@ -16,6 +16,7 @@ class ConversationParticipant extends Model
+         'role',
+         'last_read_at',
+         'is_muted',
++        'is_pinned',
+         'joined_at',
+     ];
+ 
+@@ -25,6 +26,7 @@ protected function casts(): array
+             'last_read_at' => 'datetime',
+             'joined_at' => 'datetime',
+             'is_muted' => 'boolean',
++            'is_pinned' => 'boolean',
+         ];
+     }
+ 
+diff --git a/app/Models/SavedCollection.php b/app/Models/SavedCollection.php
+new file mode 100644
+index 0000000..49a04a0
+--- /dev/null
++++ b/app/Models/SavedCollection.php
+@@ -0,0 +1,28 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++use Illuminate\Database\Eloquent\Relations\HasMany;
++
++class SavedCollection extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'user_id',
++        'name',
++    ];
++
++    public function user(): BelongsTo
++    {
++        return $this->belongsTo(User::class);
++    }
++
++    public function savedMessages(): HasMany
++    {
++        return $this->hasMany(SavedMessage::class, 'collection_id');
++    }
++}
+diff --git a/app/Models/SavedMessage.php b/app/Models/SavedMessage.php
+new file mode 100644
+index 0000000..3aafe9d
+--- /dev/null
++++ b/app/Models/SavedMessage.php
+@@ -0,0 +1,33 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++
++class SavedMessage extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'user_id',
++        'message_id',
++        'collection_id',
++    ];
++
++    public function user(): BelongsTo
++    {
++        return $this->belongsTo(User::class);
++    }
++
++    public function message(): BelongsTo
++    {
++        return $this->belongsTo(Message::class);
++    }
++
++    public function collection(): BelongsTo
++    {
++        return $this->belongsTo(SavedCollection::class, 'collection_id');
++    }
++}
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 74565e4..6b43e4f 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -5,6 +5,7 @@
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+ use Illuminate\Database\Eloquent\Relations\HasMany;
++use Illuminate\Database\Eloquent\Relations\HasOne;
+ use Illuminate\Foundation\Auth\User as Authenticatable;
+ use Illuminate\Notifications\Notifiable;
+ use Laravel\Sanctum\HasApiTokens;
+@@ -42,10 +43,31 @@ protected function casts(): array
+     public function conversations(): BelongsToMany
+     {
+         return $this->belongsToMany(Conversation::class, 'conversation_participants')
+-            ->withPivot(['role', 'last_read_at', 'is_muted', 'joined_at'])
++            ->withPivot(['role', 'last_read_at', 'is_muted', 'is_pinned', 'joined_at'])
+             ->withTimestamps();
+     }
+ 
++    // Kontak ("confidants") milik user ini
++    public function contacts(): HasMany
++    {
++        return $this->hasMany(Contact::class);
++    }
++
++    public function savedCollections(): HasMany
++    {
++        return $this->hasMany(SavedCollection::class);
++    }
++
++    public function savedMessages(): HasMany
++    {
++        return $this->hasMany(SavedMessage::class);
++    }
++
++    public function settings(): HasOne
++    {
++        return $this->hasOne(UserSetting::class);
++    }
++
+     // Semua pesan yang dikirim user ini
+     public function messages(): HasMany
+     {
+diff --git a/app/Models/UserSetting.php b/app/Models/UserSetting.php
+new file mode 100644
+index 0000000..5f10dfc
+--- /dev/null
++++ b/app/Models/UserSetting.php
+@@ -0,0 +1,38 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++
++class UserSetting extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'user_id',
++        'theme',
++        'density',
++        'desktop_notifications',
++        'message_previews',
++        'who_can_message',
++        'read_receipts',
++        'show_online_status',
++    ];
++
++    protected function casts(): array
++    {
++        return [
++            'desktop_notifications' => 'boolean',
++            'message_previews' => 'boolean',
++            'read_receipts' => 'boolean',
++            'show_online_status' => 'boolean',
++        ];
++    }
++
++    public function user(): BelongsTo
++    {
++        return $this->belongsTo(User::class);
++    }
++}
+diff --git a/app/Services/AuthService.php b/app/Services/AuthService.php
+index 6fc11d1..a697691 100644
+--- a/app/Services/AuthService.php
++++ b/app/Services/AuthService.php
+@@ -38,6 +38,8 @@ public function login(array $data): array
+             ]);
+         }
+ 
++        $user->forceFill(['status' => 'online', 'last_seen_at' => now()])->save();
++
+         $token = $user->createToken('auth_token')->plainTextToken;
+ 
+         return [
+@@ -52,5 +54,7 @@ public function logout(User $user): void
+         $token = $user->currentAccessToken();
+ 
+         $token->delete();
++
++        $user->forceFill(['status' => 'offline', 'last_seen_at' => now()])->save();
+     }
+ }
+\ No newline at end of file
+diff --git a/app/Services/ContactService.php b/app/Services/ContactService.php
+new file mode 100644
+index 0000000..950ef2b
+--- /dev/null
++++ b/app/Services/ContactService.php
+@@ -0,0 +1,99 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\Contact;
++use App\Models\MessageAttachment;
++use App\Models\Message;
++use App\Models\User;
++use Illuminate\Database\Eloquent\Collection;
++use Illuminate\Validation\ValidationException;
++
++class ContactService
++{
++    public function __construct(protected ConversationService $conversationService)
++    {
++    }
++
++    public function list(User $user): Collection
++    {
++        return $user->contacts()->with('contact')->get()
++            ->sortBy(fn (Contact $c) => mb_strtolower($c->contact->name))
++            ->values();
++    }
++
++    public function add(User $user, int $contactUserId, ?string $nickname = null): Contact
++    {
++        if ($contactUserId === $user->id) {
++            throw ValidationException::withMessages([
++                'user_id' => ['Kamu tidak bisa menambahkan dirimu sendiri.'],
++            ]);
++        }
++
++        $contact = Contact::firstOrCreate(
++            ['user_id' => $user->id, 'contact_id' => $contactUserId],
++            ['nickname' => $nickname],
++        );
++
++        return $contact->load('contact');
++    }
++
++    /** Find one of the user's contacts by the contact's *user* id. */
++    public function find(User $user, int $contactUserId): Contact
++    {
++        return $user->contacts()->with('contact')
++            ->where('contact_id', $contactUserId)
++            ->firstOrFail();
++    }
++
++    public function update(Contact $contact, array $data): Contact
++    {
++        $contact->update($data);
++
++        return $contact->load('contact');
++    }
++
++    public function remove(Contact $contact): void
++    {
++        $contact->delete();
++    }
++
++    /**
++     * Extra data for the contact profile page: shared groups, shared files and
++     * the most recent messages in the direct conversation.
++     */
++    public function detail(User $user, Contact $contact): array
++    {
++        $other = $contact->contact;
++
++        $private = $this->conversationService->findPrivate($user, $other->id);
++        $groups = $this->conversationService->groupsInCommon($user, $other->id);
++
++        $conversationIds = $groups->pluck('id')
++            ->when($private, fn ($ids) => $ids->push($private->id))
++            ->all();
++
++        $files = $conversationIds === [] ? collect() : MessageAttachment::query()
++            ->whereHas('message', fn ($q) => $q->whereIn('conversation_id', $conversationIds))
++            ->with('message.sender')
++            ->latest()
++            ->limit(10)
++            ->get();
++
++        $exchange = $private === null ? collect() : Message::query()
++            ->where('conversation_id', $private->id)
++            ->with('sender')
++            ->latest()
++            ->limit(2)
++            ->get()
++            ->reverse()
++            ->values();
++
++        return [
++            'conversation_id' => $private?->id,
++            'groups_in_common' => $groups,
++            'shared_files' => $files,
++            'last_exchange' => $exchange,
++        ];
++    }
++}
+diff --git a/app/Services/ConversationService.php b/app/Services/ConversationService.php
+index c9279e8..ac5ca19 100644
+--- a/app/Services/ConversationService.php
++++ b/app/Services/ConversationService.php
+@@ -3,6 +3,7 @@
+ namespace App\Services;
+ 
+ use App\Models\Conversation;
++use App\Models\MessageAttachment;
+ use App\Models\User;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Validation\ValidationException;
+@@ -83,6 +84,106 @@ public function getDetail(User $user, int $conversationId): Conversation
+         return $conversation;
+     }
+ 
++    /** Group conversations the user belongs to (the "Groups" page). */
++    public function groupsForUser(User $user)
++    {
++        return $user->conversations()
++            ->where('type', 'group')
++            ->with(['participants', 'latestMessage'])
++            ->get();
++    }
++
++    public function findPrivate(User $user, int $otherUserId): ?Conversation
++    {
++        return Conversation::where('type', 'private')
++            ->whereHas('participants', fn ($q) => $q->where('user_id', $user->id))
++            ->whereHas('participants', fn ($q) => $q->where('user_id', $otherUserId))
++            ->first();
++    }
++
++    /** Group conversations that both users belong to. */
++    public function groupsInCommon(User $user, int $otherUserId)
++    {
++        return Conversation::where('type', 'group')
++            ->whereHas('participants', fn ($q) => $q->where('user_id', $user->id))
++            ->whereHas('participants', fn ($q) => $q->where('user_id', $otherUserId))
++            ->withCount('participants')
++            ->get();
++    }
++
++    /** Mute / pin a conversation for the signed-in user only. */
++    public function updatePreferences(User $user, Conversation $conversation, array $data): Conversation
++    {
++        $this->ensureUserIsParticipant($user, $conversation);
++
++        $pivot = array_intersect_key($data, array_flip(['is_muted', 'is_pinned']));
++
++        if ($pivot !== []) {
++            $conversation->participants()->updateExistingPivot($user->id, $pivot);
++        }
++
++        return $conversation->load(['participants', 'latestMessage']);
++    }
++
++    /** Add people to a group. Only group admins may invite. */
++    public function addParticipants(User $user, Conversation $conversation, array $userIds): Conversation
++    {
++        $this->ensureUserIsParticipant($user, $conversation);
++
++        if ($conversation->type !== 'group') {
++            throw ValidationException::withMessages([
++                'conversation' => ['Hanya group yang bisa menambah anggota.'],
++            ]);
++        }
++
++        $isAdmin = $conversation->participants()
++            ->where('user_id', $user->id)
++            ->wherePivot('role', 'admin')
++            ->exists();
++
++        if (! $isAdmin) {
++            throw ValidationException::withMessages([
++                'conversation' => ['Hanya admin group yang bisa mengundang anggota.'],
++            ]);
++        }
++
++        $existing = $conversation->participants()->pluck('users.id')->all();
++
++        $new = [];
++        foreach (array_diff($userIds, $existing) as $id) {
++            $new[$id] = ['role' => 'member', 'joined_at' => now()];
++        }
++
++        if ($new !== []) {
++            $conversation->participants()->attach($new);
++        }
++
++        return $conversation->load(['participants', 'latestMessage']);
++    }
++
++    /** Files shared in a conversation, newest first ("Shared intel" panel). */
++    public function attachments(User $user, Conversation $conversation, int $limit = 20)
++    {
++        $this->ensureUserIsParticipant($user, $conversation);
++
++        return MessageAttachment::query()
++            ->whereHas('message', fn ($q) => $q->where('conversation_id', $conversation->id))
++            ->with('message.sender')
++            ->latest()
++            ->limit($limit)
++            ->get();
++    }
++
++    /** Name shown to $viewer: the other person for private chats, the group name otherwise. */
++    public function displayName(Conversation $conversation, User $viewer): ?string
++    {
++        if ($conversation->type === 'private') {
++            return $conversation->participants->firstWhere('id', '!=', $viewer->id)?->name;
++        }
++
++        return $conversation->name;
++    }
++
+     public function ensureUserIsParticipant(User $user, Conversation $conversation): void
+     {
+         $isParticipant = $conversation->participants()
+diff --git a/app/Services/SavedService.php b/app/Services/SavedService.php
+new file mode 100644
+index 0000000..adfd78a
+--- /dev/null
++++ b/app/Services/SavedService.php
+@@ -0,0 +1,105 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\Message;
++use App\Models\SavedCollection;
++use App\Models\SavedMessage;
++use App\Models\User;
++use Illuminate\Support\Collection;
++use Illuminate\Validation\ValidationException;
++
++class SavedService
++{
++    public function __construct(protected ConversationService $conversationService)
++    {
++    }
++
++    /**
++     * @param  array{collection_id?: int|null, type?: string|null, q?: string|null}  $filters
++     */
++    public function list(User $user, array $filters = []): Collection
++    {
++        $saved = $user->savedMessages()
++            ->with(['collection', 'message.sender', 'message.attachments', 'message.conversation.participants'])
++            ->latest()
++            ->get();
++
++        $q = trim((string) ($filters['q'] ?? ''));
++
++        return $saved
++            ->when($filters['collection_id'] ?? null, fn ($c, $id) => $c->where('collection_id', (int) $id))
++            ->when($filters['type'] ?? null, function ($c, $type) {
++                return match ($type) {
++                    'files' => $c->filter(fn (SavedMessage $s) => $s->message->attachments->isNotEmpty()),
++                    'messages' => $c->filter(fn (SavedMessage $s) => $s->message->attachments->isEmpty()),
++                    default => $c,
++                };
++            })
++            // Message bodies are encrypted at rest, so text search has to happen in PHP.
++            ->when($q !== '', fn ($c) => $c->filter(
++                fn (SavedMessage $s) => mb_stripos((string) $s->message->body, $q) !== false
++                    || mb_stripos($s->message->sender->name, $q) !== false
++            ))
++            ->values();
++    }
++
++    public function save(User $user, int $messageId, ?int $collectionId = null): SavedMessage
++    {
++        $message = Message::with('conversation')->findOrFail($messageId);
++
++        // You can only save messages from conversations you are part of.
++        $this->conversationService->ensureUserIsParticipant($user, $message->conversation);
++
++        if ($collectionId !== null) {
++            $this->ownedCollection($user, $collectionId);
++        }
++
++        $saved = SavedMessage::updateOrCreate(
++            ['user_id' => $user->id, 'message_id' => $message->id],
++            ['collection_id' => $collectionId],
++        );
++
++        return $saved->load(['collection', 'message.sender', 'message.attachments', 'message.conversation.participants']);
++    }
++
++    public function remove(User $user, int $savedId): void
++    {
++        $user->savedMessages()->findOrFail($savedId)->delete();
++    }
++
++    /** Collections with their item counts. */
++    public function collections(User $user): Collection
++    {
++        return $user->savedCollections()->withCount('savedMessages')->orderBy('name')->get();
++    }
++
++    public function createCollection(User $user, string $name): SavedCollection
++    {
++        $name = trim($name);
++
++        if ($user->savedCollections()->where('name', $name)->exists()) {
++            throw ValidationException::withMessages([
++                'name' => ['Koleksi dengan nama itu sudah ada.'],
++            ]);
++        }
++
++        return $user->savedCollections()->create(['name' => $name]);
++    }
++
++    public function deleteCollection(User $user, int $collectionId): void
++    {
++        // Saved messages stay saved; they just become uncategorised (nullOnDelete).
++        $this->ownedCollection($user, $collectionId)->delete();
++    }
++
++    public function total(User $user): int
++    {
++        return $user->savedMessages()->count();
++    }
++
++    private function ownedCollection(User $user, int $collectionId): SavedCollection
++    {
++        return $user->savedCollections()->findOrFail($collectionId);
++    }
++}
+diff --git a/app/Services/SearchService.php b/app/Services/SearchService.php
+new file mode 100644
+index 0000000..182f9a7
+--- /dev/null
++++ b/app/Services/SearchService.php
+@@ -0,0 +1,70 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\Message;
++use App\Models\MessageAttachment;
++use App\Models\User;
++use Illuminate\Support\Collection;
++
++class SearchService
++{
++    /** How many recent rows are scanned in PHP, because bodies are encrypted at rest. */
++    private const SCAN_LIMIT = 1000;
++
++    private const RESULT_LIMIT = 50;
++
++    /**
++     * @param  array{conversation_id?: int|null, from?: int|null, date_from?: string|null, date_to?: string|null, types?: array<int,string>|null}  $filters
++     * @return array{messages: Collection<int, Message>, files: Collection<int, MessageAttachment>}
++     */
++    public function search(User $user, string $query, array $filters = []): array
++    {
++        $types = $filters['types'] ?? ['messages', 'files'];
++
++        $conversationIds = $user->conversations()->pluck('conversations.id');
++
++        if (! empty($filters['conversation_id'])) {
++            $conversationIds = $conversationIds->intersect([(int) $filters['conversation_id']])->values();
++        }
++
++        if ($conversationIds->isEmpty()) {
++            return ['messages' => collect(), 'files' => collect()];
++        }
++
++        $scope = function ($q) use ($conversationIds, $filters) {
++            $q->whereIn('conversation_id', $conversationIds)
++                ->when($filters['from'] ?? null, fn ($q, $id) => $q->where('sender_id', $id))
++                ->when($filters['date_from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
++                ->when($filters['date_to'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
++        };
++
++        $messages = collect();
++        if (in_array('messages', $types, true)) {
++            $messages = Message::query()
++                ->tap($scope)
++                ->with(['sender', 'conversation.participants'])
++                ->latest()
++                ->limit(self::SCAN_LIMIT)
++                ->get()
++                ->filter(fn (Message $m) => $m->body !== null && mb_stripos($m->body, $query) !== false)
++                ->take(self::RESULT_LIMIT)
++                ->values();
++        }
++
++        $files = collect();
++        if (in_array('files', $types, true)) {
++            $files = MessageAttachment::query()
++                ->whereHas('message', $scope)
++                ->with(['message.sender', 'message.conversation.participants'])
++                ->latest()
++                ->limit(self::SCAN_LIMIT)
++                ->get()
++                ->filter(fn (MessageAttachment $a) => mb_stripos(basename($a->file_path), $query) !== false)
++                ->take(self::RESULT_LIMIT)
++                ->values();
++        }
++
++        return ['messages' => $messages, 'files' => $files];
++    }
++}
+diff --git a/app/Services/SettingService.php b/app/Services/SettingService.php
+new file mode 100644
+index 0000000..d957deb
+--- /dev/null
++++ b/app/Services/SettingService.php
+@@ -0,0 +1,23 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\User;
++use App\Models\UserSetting;
++
++class SettingService
++{
++    /** Settings are created lazily with column defaults the first time they are read. */
++    public function get(User $user): UserSetting
++    {
++        return $user->settings()->firstOrCreate([])->refresh();
++    }
++
++    public function update(User $user, array $data): UserSetting
++    {
++        $settings = $this->get($user);
++        $settings->update($data);
++
++        return $settings->refresh();
++    }
++}
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index c3928c5..0b504cc 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -11,6 +11,12 @@
+         commands: __DIR__.'/../routes/console.php',
+         health: '/up',
+     )
++    // Registers POST /broadcasting/auth (the URL the Angular EchoService calls)
++    // and loads routes/channels.php. Token auth, so Sanctum guards it, not cookies.
++    ->withBroadcasting(
++        __DIR__.'/../routes/channels.php',
++        ['middleware' => ['auth:sanctum']],
++    )
+     ->withMiddleware(function (Middleware $middleware): void {
+         //
+     })
+diff --git a/config/broadcasting.php b/config/broadcasting.php
+new file mode 100644
+index 0000000..03fbf2d
+--- /dev/null
++++ b/config/broadcasting.php
+@@ -0,0 +1,45 @@
++<?php
++
++return [
++
++    /*
++    |--------------------------------------------------------------------------
++    | Default Broadcaster
++    |--------------------------------------------------------------------------
++    |
++    | Set BROADCAST_CONNECTION=reverb in .env to push messages to the Angular
++    | client in realtime. "log" only writes events to the log file.
++    |
++    */
++
++    'default' => env('BROADCAST_CONNECTION', 'null'),
++
++    'connections' => [
++
++        'reverb' => [
++            'driver' => 'reverb',
++            'key' => env('REVERB_APP_KEY'),
++            'secret' => env('REVERB_APP_SECRET'),
++            'app_id' => env('REVERB_APP_ID'),
++            'options' => [
++                'host' => env('REVERB_HOST'),
++                'port' => env('REVERB_PORT', 443),
++                'scheme' => env('REVERB_SCHEME', 'https'),
++                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
++            ],
++            'client_options' => [
++                // Guzzle options for the server-to-Reverb HTTP call.
++            ],
++        ],
++
++        'log' => [
++            'driver' => 'log',
++        ],
++
++        'null' => [
++            'driver' => 'null',
++        ],
++
++    ],
++
++];
+diff --git a/config/cors.php b/config/cors.php
+index 97696be..ddbd03b 100644
+--- a/config/cors.php
++++ b/config/cors.php
+@@ -5,7 +5,7 @@
+ 
+     'allowed_methods' => ['*'],
+ 
+-    'allowed_origins' => ['http://localhost:4200'],
++    'allowed_origins' => array_filter(explode(',', env('FRONTEND_URL', 'http://localhost:4200'))),
+ 
+     'allowed_origins_patterns' => [],
+ 
+@@ -16,4 +16,4 @@
+     'max_age' => 0,
+ 
+     'supports_credentials' => true,
+-];
+\ No newline at end of file
++];
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index c4ceb07..d4e1faa 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -26,6 +26,7 @@ public function definition(): array
+     {
+         return [
+             'name' => fake()->name(),
++            'username' => fake()->unique()->userName(),
+             'email' => fake()->unique()->safeEmail(),
+             'email_verified_at' => now(),
+             'password' => static::$password ??= Hash::make('password'),
+diff --git a/database/migrations/2026_11_04_100000_add_description_and_pinned_to_conversations.php b/database/migrations/2026_11_04_100000_add_description_and_pinned_to_conversations.php
+new file mode 100644
+index 0000000..f770597
+--- /dev/null
++++ b/database/migrations/2026_11_04_100000_add_description_and_pinned_to_conversations.php
+@@ -0,0 +1,30 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('conversations', function (Blueprint $table) {
++            $table->text('description')->nullable()->after('avatar');
++        });
++
++        Schema::table('conversation_participants', function (Blueprint $table) {
++            $table->boolean('is_pinned')->default(false)->after('is_muted');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('conversation_participants', function (Blueprint $table) {
++            $table->dropColumn('is_pinned');
++        });
++
++        Schema::table('conversations', function (Blueprint $table) {
++            $table->dropColumn('description');
++        });
++    }
++};
+diff --git a/database/migrations/2026_11_04_100100_create_contacts_table.php b/database/migrations/2026_11_04_100100_create_contacts_table.php
+new file mode 100644
+index 0000000..8b8789d
+--- /dev/null
++++ b/database/migrations/2026_11_04_100100_create_contacts_table.php
+@@ -0,0 +1,29 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('contacts', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
++            $table->foreignId('contact_id')->constrained('users')->cascadeOnDelete();
++            $table->string('nickname')->nullable(); // shown as the "codename" in the UI
++            $table->text('note')->nullable();       // personal note, visible only to the owner
++            $table->boolean('is_muted')->default(false);
++            $table->boolean('is_blocked')->default(false);
++            $table->timestamps();
++
++            $table->unique(['user_id', 'contact_id']);
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('contacts');
++    }
++};
+diff --git a/database/migrations/2026_11_04_100200_create_saved_messages_tables.php b/database/migrations/2026_11_04_100200_create_saved_messages_tables.php
+new file mode 100644
+index 0000000..5c9a37c
+--- /dev/null
++++ b/database/migrations/2026_11_04_100200_create_saved_messages_tables.php
+@@ -0,0 +1,36 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('saved_collections', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
++            $table->string('name');
++            $table->timestamps();
++
++            $table->unique(['user_id', 'name']);
++        });
++
++        Schema::create('saved_messages', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
++            $table->foreignId('message_id')->constrained()->cascadeOnDelete();
++            $table->foreignId('collection_id')->nullable()->constrained('saved_collections')->nullOnDelete();
++            $table->timestamps();
++
++            $table->unique(['user_id', 'message_id']);
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('saved_messages');
++        Schema::dropIfExists('saved_collections');
++    }
++};
+diff --git a/database/migrations/2026_11_04_100300_create_user_settings_table.php b/database/migrations/2026_11_04_100300_create_user_settings_table.php
+new file mode 100644
+index 0000000..ad0fb34
+--- /dev/null
++++ b/database/migrations/2026_11_04_100300_create_user_settings_table.php
+@@ -0,0 +1,29 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('user_settings', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
++            $table->string('theme')->default('phantom');          // phantom | midnight | paper
++            $table->string('density')->default('comfortable');    // comfortable | compact
++            $table->boolean('desktop_notifications')->default(true);
++            $table->boolean('message_previews')->default(false);
++            $table->string('who_can_message')->default('contacts'); // contacts | everyone
++            $table->boolean('read_receipts')->default(true);
++            $table->boolean('show_online_status')->default(true);
++            $table->timestamps();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('user_settings');
++    }
++};
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 6b901f8..17c5ea8 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -2,24 +2,132 @@
+ 
+ namespace Database\Seeders;
+ 
++use App\Models\Contact;
++use App\Models\Conversation;
++use App\Models\Message;
++use App\Models\SavedCollection;
++use App\Models\SavedMessage;
+ use App\Models\User;
+-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+ use Illuminate\Database\Seeder;
++use Illuminate\Support\Facades\Hash;
+ 
++/**
++ * Demo data that matches the Phantom Messenger mockup.
++ * Log in with  joker / password  (or joker@phanlink.test).
++ */
+ class DatabaseSeeder extends Seeder
+ {
+-    use WithoutModelEvents;
+-
+-    /**
+-     * Seed the application's database.
+-     */
+     public function run(): void
+     {
+-        // User::factory(10)->create();
++        $people = [
++            'joker' => ['Ren Amamiya', 'Laying low', 'online'],
++            'skull' => ['Ryuji Sakamoto', 'Track team energy. Phantom Thief loyalty.', 'online'],
++            'panther' => ['Ann Takamaki', 'Model, thief, and fan of crepes.', 'online'],
++            'queen' => ['Makoto Niijima', 'Student council president.', 'online'],
++            'oracle' => ['Futaba Sakura', 'Hacker. Snack enthusiast.', 'offline'],
++            'fox' => ['Yusuke Kitagawa', 'Artist. Hungry.', 'offline'],
++            'mona' => ['Morgana', 'Definitely not a cat.', 'online'],
++        ];
++
++        $users = [];
++        foreach ($people as $username => [$name, $bio, $status]) {
++            $users[$username] = User::updateOrCreate(
++                ['username' => $username],
++                [
++                    'name' => $name,
++                    'email' => "{$username}@phanlink.test",
++                    'password' => Hash::make('password'),
++                    'bio' => $bio,
++                    'status' => $status,
++                ],
++            );
++        }
++
++        $joker = $users['joker'];
+ 
+-        User::factory()->create([
+-            'name' => 'Test User',
+-            'email' => 'test@example.com',
++        // Contacts of joker
++        foreach ($users as $username => $user) {
++            if ($user->id === $joker->id) {
++                continue;
++            }
++            Contact::updateOrCreate(
++                ['user_id' => $joker->id, 'contact_id' => $user->id],
++                ['nickname' => ucfirst($username)],
++            );
++        }
++
++        $thieves = $this->group('The Phantom Thieves', 'A place for the crew to plan our next move. No strangers. No spoilers. Don’t be late.', $joker, $users);
++        $this->group('Leblanc regulars', 'Coffee, curry, and a place to lay low.', $joker, [$users['joker'], $users['mona'], $users['queen'], $users['panther']]);
++        $this->group('Operation: snack run', 'Futaba: Operation is a go.', $joker, [$users['joker'], $users['oracle'], $users['skull']]);
++        $this->group('After-school plans', 'See you after class!', $joker, [$users['joker'], $users['panther'], $users['skull'], $users['queen'], $users['fox']]);
++
++        $direct = Conversation::create(['type' => 'private', 'created_by' => $joker->id]);
++        $direct->participants()->attach([
++            $joker->id => ['role' => 'member', 'joined_at' => now()],
++            $users['skull']->id => ['role' => 'member', 'joined_at' => now()],
+         ]);
++
++        $today = now()->startOfDay();
++
++        $this->say($thieves, $joker, 'Meet at Leblanc. 17:00. Don’t be late.', $today->copy()->setTime(16, 40));
++        $m1 = $this->say($thieves, $users['panther'], 'So, Leblanc at five? I’m claiming the booth. We need a proper game plan for tomorrow.', $today->copy()->setTime(16, 42));
++        $this->say($thieves, $joker, 'I’ll tell Sojiro we’re coming. Coffee’s on me.', $today->copy()->setTime(16, 42));
++        $m2 = $this->say($thieves, $users['queen'], 'I’ll bring my notes. Let’s go over the route together before we make our next move.', $today->copy()->setTime(16, 43));
++        $this->say($thieves, $users['skull'], 'Wait, does a game plan include curry?', $today->copy()->setTime(16, 44));
++        $this->say($thieves, $joker, 'Only if you actually show up on time.', $today->copy()->setTime(16, 45));
++        $this->say($thieves, $users['skull'], 'Okay, okay. I’ll be there!', $today->copy()->setTime(16, 46));
++
++        $this->say($direct, $users['skull'], 'You up for ramen after this?', $today->copy()->setTime(16, 32));
++        $this->say($direct, $joker, 'After Leblanc. Let’s get the plan sorted first.', $today->copy()->setTime(16, 34));
++
++        $m1->conversation->participants()->updateExistingPivot($joker->id, ['last_read_at' => $today->copy()->setTime(16, 41)]);
++
++        // Saved messages
++        $plans = SavedCollection::firstOrCreate(['user_id' => $joker->id, 'name' => 'Plans & operations']);
++        SavedCollection::firstOrCreate(['user_id' => $joker->id, 'name' => 'Places to go']);
++        SavedCollection::firstOrCreate(['user_id' => $joker->id, 'name' => 'Links & inspiration']);
++
++        foreach ([$m1, $m2] as $message) {
++            SavedMessage::updateOrCreate(
++                ['user_id' => $joker->id, 'message_id' => $message->id],
++                ['collection_id' => $plans->id],
++            );
++        }
++    }
++
++    /** @param  array<int|string, User>  $members */
++    private function group(string $name, string $description, User $admin, array $members): Conversation
++    {
++        $conversation = Conversation::create([
++            'type' => 'group',
++            'name' => $name,
++            'description' => $description,
++            'created_by' => $admin->id,
++        ]);
++
++        $attach = [];
++        foreach ($members as $member) {
++            $attach[$member->id] = [
++                'role' => $member->id === $admin->id ? 'admin' : 'member',
++                'joined_at' => now(),
++            ];
++        }
++        $conversation->participants()->attach($attach);
++
++        return $conversation;
++    }
++
++    private function say(Conversation $conversation, User $sender, string $body, $at): Message
++    {
++        $message = Message::create([
++            'conversation_id' => $conversation->id,
++            'sender_id' => $sender->id,
++            'type' => 'text',
++            'body' => $body,
++        ]);
++
++        $message->forceFill(['created_at' => $at, 'updated_at' => $at])->save();
++
++        return $message->setRelation('conversation', $conversation);
+     }
+ }
+diff --git a/routes/api.php b/routes/api.php
+index f843315..7c52e0c 100644
+--- a/routes/api.php
++++ b/routes/api.php
+@@ -1,8 +1,12 @@
+ <?php
+ 
+ use App\Http\Controllers\Api\AuthController;
++use App\Http\Controllers\Api\ContactController;
+ use App\Http\Controllers\Api\ConversationController;
+ use App\Http\Controllers\Api\MessageController;
++use App\Http\Controllers\Api\SavedController;
++use App\Http\Controllers\Api\SearchController;
++use App\Http\Controllers\Api\SettingController;
+ use App\Http\Controllers\Api\UserController;
+ use Illuminate\Support\Facades\Route;
+ 
+@@ -17,7 +21,30 @@
+     Route::get('/users/{id}', [UserController::class, 'show']);
+     Route::post('/profile', [UserController::class, 'updateProfile']);
+ 
++    Route::get('/groups', [ConversationController::class, 'groups']);
++
++    Route::get('/contacts', [ContactController::class, 'index']);
++    Route::post('/contacts', [ContactController::class, 'store']);
++    Route::get('/contacts/{userId}', [ContactController::class, 'show']);
++    Route::patch('/contacts/{userId}', [ContactController::class, 'update']);
++    Route::delete('/contacts/{userId}', [ContactController::class, 'destroy']);
++
++    Route::get('/saved', [SavedController::class, 'index']);
++    Route::post('/saved', [SavedController::class, 'store']);
++    Route::get('/saved/collections', [SavedController::class, 'collections']);
++    Route::post('/saved/collections', [SavedController::class, 'storeCollection']);
++    Route::delete('/saved/collections/{id}', [SavedController::class, 'destroyCollection']);
++    Route::delete('/saved/{id}', [SavedController::class, 'destroy']);
++
++    Route::get('/search', [SearchController::class, 'index']);
++
++    Route::get('/settings', [SettingController::class, 'show']);
++    Route::put('/settings', [SettingController::class, 'update']);
++
+     Route::get('/conversations', [ConversationController::class, 'index']);
++    Route::patch('/conversations/{id}/preferences', [ConversationController::class, 'preferences']);
++    Route::post('/conversations/{id}/participants', [ConversationController::class, 'addParticipants']);
++    Route::get('/conversations/{id}/attachments', [ConversationController::class, 'attachments']);
+     Route::post('/conversations/private', [ConversationController::class, 'startPrivate']);
+     Route::post('/conversations/group', [ConversationController::class, 'createGroup']);
+     Route::get('/conversations/{id}', [ConversationController::class, 'show']);
+diff --git a/tests/Feature/PhantomApiTest.php b/tests/Feature/PhantomApiTest.php
+new file mode 100644
+index 0000000..d45a4e1
+--- /dev/null
++++ b/tests/Feature/PhantomApiTest.php
+@@ -0,0 +1,189 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\Conversation;
++use App\Models\Message;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Laravel\Sanctum\Sanctum;
++use Tests\TestCase;
++
++class PhantomApiTest extends TestCase
++{
++    use RefreshDatabase;
++
++    private User $me;
++
++    private User $other;
++
++    private Conversation $group;
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++
++        $this->me = User::factory()->create(['username' => 'joker']);
++        $this->other = User::factory()->create(['username' => 'skull']);
++
++        $this->group = Conversation::create(['type' => 'group', 'name' => 'Thieves', 'created_by' => $this->me->id]);
++        $this->group->participants()->attach([
++            $this->me->id => ['role' => 'admin', 'joined_at' => now()],
++            $this->other->id => ['role' => 'member', 'joined_at' => now()],
++        ]);
++
++        Sanctum::actingAs($this->me);
++    }
++
++    private function message(string $body, ?User $sender = null): Message
++    {
++        return Message::create([
++            'conversation_id' => $this->group->id,
++            'sender_id' => ($sender ?? $this->other)->id,
++            'type' => 'text',
++            'body' => $body,
++        ]);
++    }
++
++    public function test_conversations_include_unread_count_and_preferences(): void
++    {
++        $this->message('hello');
++        $this->message('meet at Leblanc');
++
++        $this->getJson('/api/conversations')
++            ->assertOk()
++            ->assertJsonPath('conversations.0.unread_count', 2)
++            ->assertJsonPath('conversations.0.is_pinned', false);
++
++        $this->patchJson("/api/conversations/{$this->group->id}/preferences", ['is_pinned' => true, 'is_muted' => true])
++            ->assertOk()
++            ->assertJsonPath('conversation.is_pinned', true)
++            ->assertJsonPath('conversation.is_muted', true);
++    }
++
++    public function test_groups_endpoint_lists_only_groups(): void
++    {
++        $this->getJson('/api/groups')
++            ->assertOk()
++            ->assertJsonCount(1, 'groups')
++            ->assertJsonPath('groups.0.name', 'Thieves');
++    }
++
++    public function test_only_group_admins_can_invite(): void
++    {
++        $newbie = User::factory()->create();
++
++        Sanctum::actingAs($this->other);
++        $this->postJson("/api/conversations/{$this->group->id}/participants", ['user_ids' => [$newbie->id]])
++            ->assertStatus(422);
++
++        Sanctum::actingAs($this->me);
++        $this->postJson("/api/conversations/{$this->group->id}/participants", ['user_ids' => [$newbie->id]])
++            ->assertOk()
++            ->assertJsonCount(3, 'conversation.participants');
++    }
++
++    public function test_contacts_crud_and_profile(): void
++    {
++        $this->postJson('/api/contacts', ['user_id' => $this->other->id, 'nickname' => 'Skull'])
++            ->assertCreated()
++            ->assertJsonPath('contact.codename', 'Skull')
++            ->assertJsonPath('contact.handle', '@skull');
++
++        $this->postJson('/api/contacts', ['user_id' => $this->me->id])->assertStatus(422);
++
++        $this->message('ramen?');
++
++        $this->getJson("/api/contacts/{$this->other->id}")
++            ->assertOk()
++            ->assertJsonCount(1, 'groups_in_common');
++
++        $this->patchJson("/api/contacts/{$this->other->id}", ['note' => 'ask about ramen', 'is_muted' => true])
++            ->assertOk()
++            ->assertJsonPath('contact.note', 'ask about ramen')
++            ->assertJsonPath('contact.is_muted', true);
++
++        $this->deleteJson("/api/contacts/{$this->other->id}")->assertOk();
++        $this->getJson('/api/contacts')->assertOk()->assertJsonCount(0, 'contacts');
++    }
++
++    public function test_saved_messages_and_collections(): void
++    {
++        $message = $this->message('game plan');
++
++        $collection = $this->postJson('/api/saved/collections', ['name' => 'Plans'])
++            ->assertCreated()
++            ->json('collection');
++
++        $this->postJson('/api/saved/collections', ['name' => 'Plans'])->assertStatus(422);
++
++        $this->postJson('/api/saved', ['message_id' => $message->id, 'collection_id' => $collection['id']])
++            ->assertCreated()
++            ->assertJsonPath('saved.collection.name', 'Plans');
++
++        $this->getJson('/api/saved')
++            ->assertOk()
++            ->assertJsonPath('total', 1)
++            ->assertJsonPath('collections.0.count', 1)
++            ->assertJsonPath('saved.0.message.body', 'game plan');
++
++        $this->getJson('/api/saved?q=nothing-matches')->assertOk()->assertJsonCount(0, 'saved');
++    }
++
++    public function test_cannot_save_message_from_a_conversation_you_are_not_in(): void
++    {
++        $stranger = User::factory()->create();
++        $secret = Conversation::create(['type' => 'group', 'name' => 'Secret', 'created_by' => $stranger->id]);
++        $secret->participants()->attach([$stranger->id => ['role' => 'admin', 'joined_at' => now()]]);
++
++        $message = Message::create([
++            'conversation_id' => $secret->id,
++            'sender_id' => $stranger->id,
++            'type' => 'text',
++            'body' => 'private',
++        ]);
++
++        $this->postJson('/api/saved', ['message_id' => $message->id])->assertUnprocessable();
++    }
++
++    public function test_search_finds_messages_only_in_my_conversations(): void
++    {
++        $this->message('Meet at Leblanc');
++        $this->message('something else');
++
++        $stranger = User::factory()->create();
++        $secret = Conversation::create(['type' => 'group', 'name' => 'Secret', 'created_by' => $stranger->id]);
++        $secret->participants()->attach([$stranger->id => ['role' => 'admin', 'joined_at' => now()]]);
++        Message::create(['conversation_id' => $secret->id, 'sender_id' => $stranger->id, 'type' => 'text', 'body' => 'Leblanc secret']);
++
++        $this->getJson('/api/search?q=leblanc')
++            ->assertOk()
++            ->assertJsonPath('counts.messages', 1)
++            ->assertJsonPath('messages.0.conversation.name', 'Thieves');
++
++        $this->getJson('/api/search')->assertStatus(422);
++    }
++
++    public function test_settings_round_trip_with_camel_case_keys(): void
++    {
++        $this->getJson('/api/settings')
++            ->assertOk()
++            ->assertJsonPath('settings.theme', 'phantom')
++            ->assertJsonPath('settings.readReceipts', true);
++
++        $this->putJson('/api/settings', ['theme' => 'paper', 'readReceipts' => false, 'whoCanMessage' => 'everyone'])
++            ->assertOk()
++            ->assertJsonPath('settings.theme', 'paper')
++            ->assertJsonPath('settings.readReceipts', false);
++
++        $this->putJson('/api/settings', ['theme' => 'neon'])->assertStatus(422);
++    }
++
++    public function test_login_and_logout_update_presence(): void
++    {
++        $user = User::factory()->create(['username' => 'ann', 'password' => bcrypt('secret123')]);
++
++        $this->postJson('/api/login', ['login' => 'ann', 'password' => 'secret123'])->assertOk();
++        $this->assertSame('online', $user->fresh()->status);
++    }
++}
+-- 
+2.43.0
+

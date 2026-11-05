@@ -1,0 +1,21 @@
+
+
+.connector-layer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: min(900px, 100%);
+    transform: translateX(-50%);
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.connector-path {
+    fill: none;
+    stroke: #0a0a0a;
+    stroke-width: 14;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}

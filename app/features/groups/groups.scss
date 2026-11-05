@@ -1,0 +1,155 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  .pm-pane {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.label {
+  padding: 14px 16px 6px;
+}
+
+.items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.add {
+  background: var(--pm-ink-3);
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  background: var(--pm-red);
+
+  h2 {
+    font-size: 34px;
+    margin: 4px 0 6px;
+  }
+
+  small {
+    font-size: 8px;
+  }
+
+  &__eyebrow {
+    color: #fff;
+    opacity: 0.8;
+  }
+}
+
+.meetup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  &__time {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--pm-red);
+    font: 800 15px/1 var(--pm-font-ui);
+
+    small {
+      margin-top: 3px;
+      font-size: 6px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+  }
+
+  h3 {
+    margin: 4px 0;
+    font-size: 16px;
+  }
+
+  small {
+    font-size: 8px;
+    color: var(--pm-muted);
+  }
+}
+
+.members {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+
+  li {
+    display: grid;
+    grid-template-columns: 22px 1fr 80px 110px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--pm-line);
+    font-size: 9px;
+  }
+
+  .code {
+    font: 700 7px/1 var(--pm-font-ui);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--pm-muted);
+  }
+
+  .state {
+    font-size: 8px;
+    color: var(--pm-muted);
+
+    &--on {
+      color: var(--pm-red);
+    }
+  }
+}
+
+.pref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 9px;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background: var(--pm-ink-2);
+  border: 1px solid var(--pm-line);
+
+  span {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  strong {
+    font-size: 8px;
+  }
+
+  small {
+    font-size: 7px;
+    color: var(--pm-muted);
+  }
+}
+
+.actions {
+  border-bottom: 0;
+}

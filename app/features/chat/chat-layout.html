@@ -1,0 +1,319 @@
+<div class="chat-layout">
+
+    <!-- ========================= -->
+    <!-- SIDEBAR -->
+    <!-- ========================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-header">
+
+            <div class="logo-wrap">
+
+                <div class="logo-shadow"></div>
+
+                <div class="logo">
+
+                    PHAN<span>LINK</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="conversation-list">
+
+            @for (conv of conversations(); track conv.id) {
+
+                <div
+                    class="conversation-item"
+                    [class.active]="selectedConversation()?.id === conv.id"
+                    (click)="selectConversation(conv)"
+                >
+
+                    <div class="conversation-bg"></div>
+
+                    <div class="avatar-card">
+
+                        <div class="avatar-shadow"></div>
+
+                        <div class="avatar-frame">
+
+                            <div class="avatar">
+
+                                {{ (conv.name?.charAt(0) ?? '?').toUpperCase() }}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="conversation-content">
+
+                        <div class="conversation-name">
+
+                            {{ conv.name ?? 'Conversation' }}
+
+                        </div>
+
+                        <div class="conversation-preview">
+
+                            {{ conv.latest_message?.body ?? 'Belum ada pesan' }}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            }
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- ========================= -->
+    <!-- CHAT -->
+    <!-- ========================= -->
+
+    <section class="chat-area">
+
+        @if(selectedConversation(); as conversation){
+
+        <!-- ========================= -->
+        <!-- HEADER -->
+        <!-- ========================= -->
+
+        <header class="chat-header">
+
+            <div class="header-avatar">
+
+                <div class="avatar-shadow"></div>
+
+                <div class="avatar-frame">
+
+                    <div class="avatar">
+
+                        {{ getOtherParticipantInitial() }}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="header-info">
+
+                <div class="header-name">
+
+                    {{ conversation.name }}
+
+                </div>
+
+                <div class="header-status">
+
+                    ONLINE
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ========================= -->
+        <!-- FEED -->
+        <!-- ========================= -->
+
+        <div class="feed">
+
+            <!-- background -->
+
+            <div class="feed-background"></div>
+
+            <div class="feed-overlay"></div>
+
+            <div class="feed-noise"></div>
+
+            <!-- connector -->
+
+            <svg class="connector-layer">
+
+                @for (c of connectors(); track c.key) {
+
+                    <path
+
+                        class="connector-path"
+
+                        [attr.d]="c.d"
+
+                    ></path>
+
+                }
+
+            </svg>
+
+            <!-- messages -->
+
+            <div
+
+                class="message-stack"
+
+                #feedInner
+
+                #bubblesWrap
+
+            >
+
+                @for (msg of messages(); track msg.id) {
+
+                <div
+
+                    class="message-row"
+
+                    [class.align-right]="isMyMessage(msg)"
+
+                >
+
+                    <!-- avatar kiri -->
+
+                    @if(!isMyMessage(msg)){
+
+                    <div class="message-avatar">
+
+                        <div class="avatar-shadow"></div>
+
+                        <div class="avatar-frame">
+
+                            <div class="avatar">
+
+                                {{ (msg.sender?.name?.charAt(0) ?? '?').toUpperCase() }}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    }
+
+                    <!-- bubble -->
+
+                    <div
+
+                        #bubbleEl
+
+                        class="bubble"
+
+                        [class.mine]="isMyMessage(msg)"
+
+                        [class.theirs]="!isMyMessage(msg)"
+
+                    >
+
+                        <div class="bubble-shadow"></div>
+
+                        <div class="bubble-body">
+
+                            <div class="bubble-tail"></div>
+
+                            <div class="bubble-content">
+
+                                {{ msg.body }}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                }
+
+            </div>
+
+        </div>
+
+
+
+        <!-- ========================= -->
+        <!-- INPUT -->
+        <!-- ========================= -->
+
+        <div class="input-container">
+
+            <div class="input-shadow"></div>
+
+            <div class="input-panel">
+
+                <input
+
+                    class="message-input"
+
+                    type="text"
+
+                    [(ngModel)]="newMessageTextModel"
+
+                    (keyup.enter)="sendMessage()"
+
+                    placeholder="Enter message..."
+
+                />
+
+                <button
+
+                    class="send-button"
+
+                    (click)="sendMessage()"
+
+                >
+
+                    <span>SEND</span>
+
+                </button>
+
+            </div>
+
+        </div>
+
+        }
+
+        @else {
+
+        <!-- ========================= -->
+        <!-- EMPTY -->
+        <!-- ========================= -->
+
+        <div class="empty-state">
+
+            <div class="empty-shadow"></div>
+
+            <div class="empty-card">
+
+                <div class="empty-title">
+
+                    PHANLINK
+
+                </div>
+
+                <div class="empty-subtitle">
+
+                    Pilih percakapan untuk mulai chat.
+
+                </div>
+
+            </div>
+
+        </div>
+
+        }
+
+    </section>
+
+</div>

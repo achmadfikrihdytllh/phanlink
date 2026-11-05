@@ -1,0 +1,136 @@
+<pm-page-frame>
+  <div slot="list">
+    <header class="pm-list-head">
+      <h1 class="pm-title">Search</h1>
+    </header>
+
+    <div class="pm-eyebrow label">Narrow the search</div>
+
+    <div class="filter">
+      <span class="pm-label dark">In conversation</span>
+      <select><option>All conversations</option></select>
+    </div>
+    <div class="filter">
+      <span class="pm-label dark">From</span>
+      <select><option>Anyone</option></select>
+    </div>
+    <div class="filter">
+      <span class="pm-label dark">Date range</span>
+      <select><option>Any time</option></select>
+    </div>
+
+    <div class="filter">
+      <span class="pm-label dark">Content type</span>
+      <label class="check">
+        <input type="checkbox" checked [disabled]="true" /> Messages
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          [checked]="showFiles()"
+          (change)="showFiles.set($any($event.target).checked)"
+        />
+        Files &amp; attachments
+      </label>
+    </div>
+    <button type="button" class="reset" (click)="resetFilters()">Reset filters</button>
+
+    <div class="pm-eyebrow label">Recent searches</div>
+    <ul class="recent">
+      @for (r of recent(); track r) {
+        <li><button type="button" (click)="useRecent(r)">{{ r }}</button></li>
+      }
+    </ul>
+  </div>
+
+  <div slot="main" class="page">
+    <header class="pm-hero">
+      <div>
+        <div class="pm-eyebrow">Global search / Messages &amp; shared intel</div>
+        <h2 class="pm-title">Leave no clue behind.</h2>
+      </div>
+      <pm-icon name="search" [size]="18" />
+    </header>
+
+    <div class="bar">
+      <pm-icon name="search" [size]="14" />
+      <input
+        type="text"
+        placeholder="Search everywhere"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+        aria-label="Search everywhere"
+      />
+      @if (query()) {
+        <button type="button" aria-label="Clear search" (click)="query.set('')">
+          <pm-icon name="close" [size]="12" />
+        </button>
+      }
+    </div>
+
+    <div class="results pm-scroll">
+      <div class="count">
+        {{ results().length }} results for “{{ query() }}”
+      </div>
+
+      @if (messages().length) {
+        <div class="group">Messages / {{ messages().length }}</div>
+        @for (h of messages(); track h.id) {
+          <button type="button" class="hit" [class.hit--on]="focus()?.id === h.id" (click)="pickedId.set(h.id)">
+            <span class="hit__head">
+              <span class="pm-avatar pm-avatar--light">{{ h.author.charAt(0) }}</span>
+              <strong>{{ h.author }}</strong>
+              <small>{{ h.where }}</small>
+              <time>{{ h.time }}</time>
+            </span>
+            <span class="hit__body">
+              @for (s of segments(h.body); track $index) {
+                @if (s.hit) { <mark>{{ s.text }}</mark> } @else { {{ s.text }} }
+              }
+            </span>
+          </button>
+        }
+      }
+
+      @if (files().length) {
+        <div class="group">Files &amp; attachments / {{ files().length }}</div>
+        @for (h of files(); track h.id) {
+          <div class="hit hit--file">
+            <pm-icon name="file" [size]="13" />
+            <span class="hit__body">
+              <strong>
+                @for (s of segments(h.body); track $index) {
+                  @if (s.hit) { <mark>{{ s.text }}</mark> } @else { {{ s.text }} }
+                }
+              </strong>
+              <small>{{ h.author }} · {{ h.where }}</small>
+            </span>
+            <pm-icon name="download" [size]="12" />
+          </div>
+        }
+      }
+
+      @if (!results().length) {
+        <p class="none">No clues found. Try a different word.</p>
+      }
+    </div>
+  </div>
+
+  <div slot="aside">
+    <section class="pm-section">
+      <div class="pm-eyebrow">Result preview / Message</div>
+      <h2 class="pm-title">In context</h2>
+    </section>
+    @if (focus(); as f) {
+      <section class="pm-section">
+        <small class="where">{{ f.where }} · {{ f.time }}</small>
+        <div class="ctx">
+          <small>{{ f.author }}</small>
+          <p>{{ f.body }}</p>
+        </div>
+        <a class="pm-btn jump" routerLink="/messages"><span>Jump to message</span></a>
+        <button type="button" class="pm-btn pm-btn--dark jump"><span>Save message</span></button>
+      </section>
+    }
+  </div>
+</pm-page-frame>
