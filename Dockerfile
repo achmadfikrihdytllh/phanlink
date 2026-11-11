@@ -3,8 +3,10 @@ FROM php:8.3-cli
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev \
- && docker-php-ext-install pdo_pgsql pdo_mysql zip \
+ && docker-php-ext-install pdo_pgsql pdo_mysql zip opcache \
  && rm -rf /var/lib/apt/lists/*
+
+RUN { echo 'opcache.enable=1'; echo 'opcache.enable_cli=1'; echo 'opcache.memory_consumption=64'; echo 'opcache.validate_timestamps=0'; } > /usr/local/etc/php/conf.d/opcache.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -23,6 +25,9 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Migrate on boot (safe: only adds missing tables), then serve.
+ENV PHP_CLI_SERVER_WORKERS=3
+
 CMD php artisan storage:link --force; \
     php artisan migrate --force && \
+    php artisan config:cache && php artisan route:cache && \
     php artisan serve --host=0.0.0.0 --port=${PORT}
