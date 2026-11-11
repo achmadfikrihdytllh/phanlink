@@ -11,7 +11,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist \
- && composer require league/flysystem-aws-s3-v3:^3.0 --no-scripts --no-interaction --update-with-dependencies
+ && composer require league/flysystem-aws-s3-v3:^3.0 --no-scripts --no-interaction --update-no-dev \
+ && composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
 COPY . .
 RUN composer dump-autoload --optimize --no-dev \
