@@ -21,14 +21,19 @@ class UserService
     public function updateProfile(User $user, array $data): User
     {
         if (isset($data['avatar'])) {
+            $disk = Storage::disk(config('filesystems.uploads'));
+
             // Hapus avatar lama kalau ada, biar storage nggak numpuk file nggak kepakai
             if ($user->avatar) {
-                $oldPath = str_replace('/storage/', '', $user->avatar);
-                Storage::disk('public')->delete($oldPath);
+                $prefix = rtrim($disk->url(''), '/') . '/';
+                $oldPath = str_starts_with($user->avatar, $prefix)
+                    ? substr($user->avatar, strlen($prefix))
+                    : ltrim(str_replace('/storage/', '', $user->avatar), '/');
+                $disk->delete($oldPath);
             }
 
-            $path = $data['avatar']->store('avatars', 'public');
-            $data['avatar'] = Storage::url($path);
+            $path = $data['avatar']->store('avatars', config('filesystems.uploads'));
+            $data['avatar'] = $disk->url($path);
         }
 
         $user->update($data);

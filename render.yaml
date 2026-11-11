@@ -1,0 +1,50 @@
+# Render Blueprint: satu web service (API ini). Database & file ada di Supabase (gratis, tidak kedaluwarsa).
+# Catatan free tier Render: service tidur setelah ~15 menit idle (request pertama lambat ~30-60 dtk).
+# Variabel bertanda sync:false diisi manual di dashboard Render (lihat README bagian Deploy).
+services:
+  - type: web
+    name: phanlink-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false          # php artisan key:generate --show
+      - key: APP_URL
+        sync: false          # https://api-phanlink.achfikrihidytllh.my.id
+      - key: FRONTEND_URL
+        sync: false          # https://phanlink.achfikrihidytllh.my.id  (koma untuk banyak origin)
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        sync: false          # Supabase Session pooler URI
+      - key: UPLOADS_DISK
+        value: s3
+      - key: AWS_ACCESS_KEY_ID
+        sync: false          # Supabase > Storage > S3 Connection
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        sync: false          # region project Supabase, mis. ap-southeast-1
+      - key: AWS_BUCKET
+        value: phanlink
+      - key: AWS_ENDPOINT
+        sync: false          # https://<ref>.supabase.co/storage/v1/s3
+      - key: AWS_URL
+        sync: false          # https://<ref>.supabase.co/storage/v1/object/public/phanlink
+      - key: AWS_USE_PATH_STYLE_ENDPOINT
+        value: "true"
+      - key: BROADCAST_CONNECTION
+        value: "null"        # tanpa websocket di free tier; chat tetap jalan, tidak realtime
+      - key: SESSION_DRIVER
+        value: array
+      - key: CACHE_STORE
+        value: array
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr
