@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SendMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Services\MessageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,16 +21,47 @@ class MessageController extends Controller
     {
         $conversation = Conversation::findOrFail($conversationId);
 
-        $messages = $this->messageService->getMessages($request->user(), $conversation);
+        $page = $this->messageService->getMessages(
+            $request->user(),
+            $conversation,
+            $request->integer('before') ?: null,
+        );
 
         return response()->json([
-            'messages' => MessageResource::collection($messages),
+            'messages' => MessageResource::collection($page['messages']),
             'meta' => [
-                'current_page' => $messages->currentPage(),
-                'last_page' => $messages->lastPage(),
-                'per_page' => $messages->perPage(),
-                'total' => $messages->total(),
+                'has_more' => $page['has_more'],
+                'oldest_id' => $page['messages']->last()?->id,
             ],
+        ]);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['body' => ['required', 'string', 'max:5000']]);
+        $message = Message::findOrFail($id);
+
+        return response()->json([
+            'data' => new MessageResource($this->messageService->edit($request->user(), $message, $data['body'])),
+        ]);
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $message = Message::findOrFail($id);
+
+        return response()->json([
+            'data' => new MessageResource($this->messageService->delete($request->user(), $message)),
+        ]);
+    }
+
+    public function react(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['emoji' => ['required', 'string', 'max:16']]);
+        $message = Message::findOrFail($id);
+
+        return response()->json([
+            'data' => new MessageResource($this->messageService->toggleReaction($request->user(), $message, $data['emoji'])),
         ]);
     }
 

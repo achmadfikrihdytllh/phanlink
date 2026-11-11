@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\GroupPlanController;
+use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ConversationController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\SavedController;
@@ -10,10 +12,15 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Public endpoints are throttled hard: they are the ones a stranger can hammer.
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [PasswordController::class, 'forgot']);
+    Route::post('/reset-password', [PasswordController::class, 'reset']);
+});
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:240,1'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
@@ -48,8 +55,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations/private', [ConversationController::class, 'startPrivate']);
     Route::post('/conversations/group', [ConversationController::class, 'createGroup']);
     Route::get('/conversations/{id}', [ConversationController::class, 'show']);
+    Route::patch('/conversations/{id}', [ConversationController::class, 'update']);
+    Route::delete('/conversations/{id}/participants/{userId}', [ConversationController::class, 'removeParticipant']);
+    Route::post('/conversations/{id}/pin', [ConversationController::class, 'pin']);
+
+    Route::get('/conversations/{conversationId}/events', [GroupPlanController::class, 'events']);
+    Route::post('/conversations/{conversationId}/events', [GroupPlanController::class, 'storeEvent']);
+    Route::patch('/events/{id}', [GroupPlanController::class, 'updateEvent']);
+    Route::delete('/events/{id}', [GroupPlanController::class, 'destroyEvent']);
+    Route::post('/events/{id}/respond', [GroupPlanController::class, 'respond']);
+
+    Route::get('/conversations/{conversationId}/polls', [GroupPlanController::class, 'polls']);
+    Route::post('/conversations/{conversationId}/polls', [GroupPlanController::class, 'storePoll']);
+    Route::post('/polls/{id}/vote', [GroupPlanController::class, 'vote']);
+    Route::delete('/polls/{id}', [GroupPlanController::class, 'destroyPoll']);
 
     Route::get('/conversations/{conversationId}/messages', [MessageController::class, 'index']);
-    Route::post('/conversations/{conversationId}/messages', [MessageController::class, 'store']);
+    Route::post('/conversations/{conversationId}/messages', [MessageController::class, 'store'])->middleware('throttle:60,1');
+    Route::patch('/messages/{id}', [MessageController::class, 'update']);
+    Route::delete('/messages/{id}', [MessageController::class, 'destroy']);
+    Route::post('/messages/{id}/reactions', [MessageController::class, 'react']);
     Route::post('/conversations/{conversationId}/read', [MessageController::class, 'markAsRead']);
 });

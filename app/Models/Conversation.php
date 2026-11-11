@@ -18,6 +18,7 @@ class Conversation extends Model
         'avatar',
         'description',
         'created_by',
+        'pinned_message_id',
     ];
 
     public function creator(): BelongsTo
@@ -35,6 +36,11 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function pinnedMessage(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'pinned_message_id');
     }
 
     public function latestMessage()

@@ -17,7 +17,7 @@ class UserResource extends JsonResource
             'avatar' => $this->avatar,
             'bio' => $this->bio,
             'phone_number' => $this->phone_number,
-            'status' => $this->status,
+            'status' => $this->publicStatus($request->user()?->id),
             'last_seen_at' => $this->last_seen_at,
         ];
     }

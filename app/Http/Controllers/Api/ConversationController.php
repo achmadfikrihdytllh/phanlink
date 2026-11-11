@@ -118,4 +118,48 @@ class ConversationController extends Controller
             'conversation' => new ConversationResource($conversation),
         ]);
     }
+
+    /** Rename / re-describe a group (admins only). */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $conversation = Conversation::findOrFail($id);
+
+        return response()->json([
+            'conversation' => new ConversationResource(
+                $this->conversationService->updateGroup($request->user(), $conversation, $data)
+            ),
+        ]);
+    }
+
+    /** Remove a member, or leave the group when {userId} is yourself. */
+    public function removeParticipant(Request $request, int $id, int $userId): JsonResponse
+    {
+        $conversation = Conversation::findOrFail($id);
+
+        $updated = $this->conversationService->removeParticipant($request->user(), $conversation, $userId);
+
+        return response()->json([
+            'message' => $updated ? 'Anggota dikeluarkan.' : 'Kamu keluar dari group.',
+            'conversation' => $updated ? new ConversationResource($updated) : null,
+        ]);
+    }
+
+    /** Pin (message_id) or unpin (null) a message at the top of the chat. */
+    public function pin(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['message_id' => ['nullable', 'integer']]);
+
+        $conversation = Conversation::findOrFail($id);
+
+        return response()->json([
+            'conversation' => new ConversationResource(
+                $this->conversationService->pinMessage($request->user(), $conversation, $data['message_id'] ?? null)
+            ),
+        ]);
+    }
 }

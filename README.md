@@ -8,6 +8,9 @@ Backend untuk **Phantom Messenger**: aplikasi chat dengan percakapan pribadi dan
 
 - Registrasi, login, logout (token Sanctum).
 - Chat pribadi dan grup, kirim pesan dan lampiran, tandai dibaca, realtime lewat Reverb.
+- Pesan: balas (reply), reaksi emoji, edit dan hapus (soft delete), sematkan pesan, pagination riwayat.
+- Grup: rencana/acara dengan RSVP (pengumuman otomatis di chat), polling, ganti nama dan deskripsi, keluarkan anggota, keluar grup.
+- Lupa dan reset password lewat email, batas kecepatan (rate limit) pada login dan API.
 - Grup: buat grup, undang anggota (khusus admin), bisukan dan sematkan percakapan, daftar file bersama.
 - Kontak: tambah, nickname, catatan, bisukan, blokir, halaman profil kontak.
 - Pesan tersimpan dengan koleksi.
@@ -63,23 +66,26 @@ Semua di bawah `/api` dan memakai header `Authorization: Bearer <token>`, kecual
 
 | Bagian | Endpoint |
 |---|---|
-| Auth | `POST /register`, `POST /login`, `POST /logout`, `GET /me` |
+| Auth | `POST /register`, `POST /login`, `POST /logout`, `GET /me`, `POST /forgot-password` (`email`), `POST /reset-password` (`token`, `email`, `password`, `password_confirmation`) |
 | Pengguna | `GET /users/search`, `GET /users/{id}`, `POST /profile` (`name`, `username`, `bio`, `phone_number`, `avatar` gambar maks 5 MB, kirim sebagai `multipart/form-data`) |
 | Percakapan | `GET /conversations`, `GET /conversations/{id}`, `POST /conversations/private`, `POST /conversations/group`, `PATCH /conversations/{id}/preferences` (`is_muted`, `is_pinned`), `POST /conversations/{id}/participants` (admin saja), `GET /conversations/{id}/attachments` |
 | Grup | `GET /groups` |
-| Pesan | `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages`, `POST /conversations/{id}/read` |
+| Pesan | `GET /conversations/{id}/messages?before=ID` (halaman lebih lama), `POST /conversations/{id}/messages` (`body`, `reply_to_id`, `attachment`), `PATCH /messages/{id}` (edit), `DELETE /messages/{id}`, `POST /messages/{id}/reactions` (`emoji`, toggle), `POST /conversations/{id}/read`, `POST /conversations/{id}/pin` (`message_id` atau null) |
+| Kelola grup | `PATCH /conversations/{id}` (`name`, `description`, admin), `DELETE /conversations/{id}/participants/{userId}` (keluarkan anggota, atau keluar jika id sendiri) |
+| Rencana grup | `GET` dan `POST /conversations/{id}/events` (`title`, `starts_at`, `location`, `description`), `PATCH` dan `DELETE /events/{id}`, `POST /events/{id}/respond` (`going`, `maybe`, `declined`); `GET` dan `POST /conversations/{id}/polls` (`question`, `options[]`), `POST /polls/{id}/vote` (`option_id`), `DELETE /polls/{id}` |
 | Kontak | `GET /contacts`, `POST /contacts`, `GET /contacts/{userId}`, `PATCH /contacts/{userId}` (`nickname`, `note`, `is_muted`, `is_blocked`), `DELETE /contacts/{userId}` |
 | Tersimpan | `GET /saved?collection_id&type&q`, `POST /saved`, `DELETE /saved/{id}`, `GET` dan `POST /saved/collections`, `DELETE /saved/collections/{id}` |
 | Pencarian | `GET /search?q&conversation_id&from&date_from&date_to&types[]=messages&types[]=files` |
 | Pengaturan | `GET /settings`, `PUT /settings` (kunci camelCase, sama dengan tipe `UserPrefs` di Angular) |
 
-**Realtime:** `POST /broadcasting/auth` (di luar `/api`), channel privat `conversation.{id}`, event `.message.sent`.
+**Realtime:** `POST /broadcasting/auth` (di luar `/api`), channel privat `conversation.{id}`, event `.message.sent` dan `.message.changed` (edit, hapus, reaksi). Indikator "sedang mengetik" dan "dibaca" memakai client event (whisper) langsung antaranggota, tanpa lewat server (`REVERB_APP_ACCEPT_CLIENT_EVENTS_FROM=members`).
 
 ## Catatan teknis
 
 - Isi pesan **dienkripsi** di database, sehingga pencarian dan filter teks dilakukan di PHP atas 1000 pesan terbaru milik pengguna. Untuk data besar, buat indeks pencarian terpisah.
 - Kegagalan broadcast tidak membuat pengiriman pesan gagal (error dicatat ke log).
-- Pengaturan privasi (siapa yang boleh mengirim pesan, tanda dibaca, status online) saat ini disimpan tetapi belum ditegakkan oleh backend.
+- Pengaturan privasi ditegakkan: siapa yang boleh memulai chat, tanda dibaca, dan status online disembunyikan sesuai pilihan pengguna.
+- Email reset password memakai `MAIL_MAILER=log` secara default, jadi tautannya muncul di `storage/logs/laravel.log`. Isi `MAIL_*` dengan SMTP sungguhan untuk produksi.
 
 ## Tes
 
@@ -87,10 +93,15 @@ Semua di bawah `/api` dan memakai header `Authorization: Bearer <token>`, kecual
 php artisan test
 ```
 
-## Deploy gratis (ringkas)
+## Deploy gratis
 
-- Gunakan hosting yang mendukung PHP atau Docker. Di layanan gratis, disk biasanya tidak permanen, jadi pakai database eksternal (misalnya Postgres) dan penyimpanan file eksternal untuk avatar dan lampiran.
-- Set `FRONTEND_URL` ke alamat frontend, dan `BROADCAST_CONNECTION=null` bila tidak menjalankan Reverb.
+Tersedia `Dockerfile` dan `render.yaml` (Render Blueprint: web service + Postgres gratis).
+
+1. Dorong repo ke GitHub, lalu di Render pilih **New, Blueprint** dan arahkan ke repo ini.
+2. Isi variabel yang bertanda `sync: false`: `APP_KEY` (hasil `php artisan key:generate --show`), `APP_URL`, dan `FRONTEND_URL` (alamat frontend; pisahkan dengan koma untuk beberapa alamat, misalnya tambahkan `https://localhost` bila memakai APK Capacitor).
+3. Migrasi dijalankan otomatis saat container menyala.
+
+Batasan paket gratis: server tidur setelah sekitar 15 menit tanpa trafik, dan file unggahan (avatar, lampiran) hilang saat restart karena disk tidak permanen (pakai penyimpanan eksternal bila perlu). Realtime dimatikan (`BROADCAST_CONNECTION=null`); pesan tetap terkirim, hanya tidak muncul langsung.
 
 ## Lisensi
 

@@ -56,6 +56,16 @@ class DatabaseSeeder extends Seeder
             );
         }
 
+        // Everyone knows joker too, so "contacts only" (the default) lets the demo accounts message each other.
+        foreach ($users as $username => $user) {
+            if ($user->id !== $joker->id) {
+                Contact::updateOrCreate(
+                    ['user_id' => $user->id, 'contact_id' => $joker->id],
+                    ['nickname' => 'Joker'],
+                );
+            }
+        }
+
         $thieves = $this->group('The Phantom Thieves', 'A place for the crew to plan our next move. No strangers. No spoilers. Don’t be late.', $joker, $users);
         $this->group('Leblanc regulars', 'Coffee, curry, and a place to lay low.', $joker, [$users['joker'], $users['mona'], $users['queen'], $users['panther']]);
         $this->group('Operation: snack run', 'Futaba: Operation is a go.', $joker, [$users['joker'], $users['oracle'], $users['skull']]);

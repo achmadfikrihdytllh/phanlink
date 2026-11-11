@@ -20,7 +20,7 @@ class ContactResource extends JsonResource
             'codename' => $this->nickname ?: $user->username,
             'avatar' => $user->avatar,
             'bio' => $user->bio,
-            'status' => $user->status,
+            'status' => $user->publicStatus($request->user()?->id),
             'last_seen_at' => $user->last_seen_at,
             'note' => $this->note,
             'is_muted' => $this->is_muted,

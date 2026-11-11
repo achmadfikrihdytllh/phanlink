@@ -19,13 +19,20 @@ class MessageResource extends JsonResource
                 'avatar' => $this->sender->avatar,
             ],
             'type' => $this->type,
-            'body' => $this->body,
+            'body' => $this->trashed() ? null : $this->body,
+            'deleted' => $this->trashed(),
             'reply_to' => $this->whenLoaded('replyTo', function () {
                 return $this->replyTo ? [
                     'id' => $this->replyTo->id,
-                    'body' => $this->replyTo->body,
+                    'body' => $this->replyTo->trashed() ? null : $this->replyTo->body,
                     'sender_id' => $this->replyTo->sender_id,
                 ] : null;
+            }),
+            'reactions' => $this->whenLoaded('reactions', function () {
+                return $this->reactions->groupBy('emoji')->map(fn ($rows, $emoji) => [
+                    'emoji' => $emoji,
+                    'user_ids' => $rows->pluck('user_id')->values(),
+                ])->values();
             }),
             'attachments' => $this->whenLoaded('attachments', function () {
                 return $this->attachments->map(fn ($a) => [

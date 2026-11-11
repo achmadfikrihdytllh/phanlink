@@ -18,7 +18,7 @@ class MessageSent implements ShouldBroadcastNow
 
     public function __construct(public Message $message)
     {
-        $this->message->load(['sender', 'replyTo', 'attachments']);
+        $this->message->load(['sender', 'replyTo', 'attachments', 'reactions']);
     }
 
     public function broadcastOn(): array

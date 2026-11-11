@@ -49,6 +49,11 @@ class Message extends Model
         return $this->hasMany(MessageAttachment::class);
     }
 
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class);
+    }
+
     public function reads(): HasMany
     {
         return $this->hasMany(MessageRead::class);

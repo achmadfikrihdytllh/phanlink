@@ -38,16 +38,25 @@ class ConversationResource extends JsonResource
             'description' => $this->description,
             'created_by' => $this->created_by,
             'unread_count' => $unread,
+            'pinned_message' => $this->pinned_message_id && $this->pinnedMessage ? [
+                'id' => $this->pinnedMessage->id,
+                'body' => $this->pinnedMessage->body,
+                'sender_id' => $this->pinnedMessage->sender_id,
+            ] : null,
             'is_muted' => (bool) ($mine?->is_muted ?? false),
             'is_pinned' => (bool) ($mine?->is_pinned ?? false),
-            'participants' => $this->whenLoaded('participants', function () {
+            'participants' => $this->whenLoaded('participants', function () use ($authUserId) {
                 return $this->participants->map(fn ($user) => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'username' => $user->username,
                     'avatar' => $user->avatar,
-                    'status' => $user->status,
+                    'status' => $user->publicStatus($authUserId),
                     'role' => $user->pivot->role,
+                    // Read marker for the "seen" ticks. Hidden when that person turned read receipts off.
+                    'last_read_at' => ($user->id === $authUserId || ($user->settings?->read_receipts ?? true))
+                        ? $user->pivot->last_read_at
+                        : null,
                 ]);
             }),
             'latest_message' => $this->whenLoaded('latestMessage', function () {

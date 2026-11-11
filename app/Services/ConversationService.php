@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +37,8 @@ class ConversationService
             return $existing->load(['participants', 'latestMessage']);
         }
 
+        $this->ensureCanStartChat($user, $otherUserId);
+
         return DB::transaction(function () use ($user, $otherUserId) {
             $conversation = Conversation::create([
                 'type' => 'private',
@@ -48,6 +52,24 @@ class ConversationService
 
             return $conversation->load(['participants', 'latestMessage']);
         });
+    }
+
+    /** Honours the other person's "who can message me" setting when a new private chat is opened. */
+    public function ensureCanStartChat(User $sender, int $otherUserId): void
+    {
+        $setting = User::find($otherUserId)?->settings;
+
+        if (($setting?->who_can_message ?? 'contacts') !== 'contacts') {
+            return;
+        }
+
+        $isTheirContact = Contact::where('user_id', $otherUserId)->where('contact_id', $sender->id)->exists();
+
+        if (! $isTheirContact) {
+            throw ValidationException::withMessages([
+                'user_id' => ['Orang ini hanya menerima pesan dari kontaknya.'],
+            ]);
+        }
     }
 
     public function createGroup(User $user, array $data): Conversation
@@ -159,6 +181,77 @@ class ConversationService
         }
 
         return $conversation->load(['participants', 'latestMessage']);
+    }
+
+    /** Rename or re-describe a group. Admins only. */
+    public function updateGroup(User $user, Conversation $conversation, array $data): Conversation
+    {
+        $this->ensureGroupAdmin($user, $conversation);
+
+        $conversation->update(array_intersect_key($data, array_flip(['name', 'description'])));
+
+        return $conversation->load(['participants', 'latestMessage']);
+    }
+
+    /**
+     * Remove a member (admins) or leave the group (yourself).
+     * If the last admin leaves, the longest-standing member is promoted so the group is never leaderless.
+     */
+    public function removeParticipant(User $actor, Conversation $conversation, int $userId): ?Conversation
+    {
+        $this->ensureUserIsParticipant($actor, $conversation);
+
+        if ($conversation->type !== 'group') {
+            throw ValidationException::withMessages(['conversation' => ['Hanya group yang punya anggota.']]);
+        }
+
+        if ($actor->id !== $userId) {
+            $this->ensureGroupAdmin($actor, $conversation);
+        }
+
+        $conversation->participants()->detach($userId);
+
+        $remaining = $conversation->participants()->orderBy('conversation_participants.joined_at')->get();
+
+        if ($remaining->isNotEmpty() && ! $remaining->contains(fn ($u) => $u->pivot->role === 'admin')) {
+            $conversation->participants()->updateExistingPivot($remaining->first()->id, ['role' => 'admin']);
+        }
+
+        return $actor->id === $userId ? null : $conversation->load(['participants', 'latestMessage']);
+    }
+
+    /** Pin one message to the top of the chat (null unpins). Groups: admins only. */
+    public function pinMessage(User $user, Conversation $conversation, ?int $messageId): Conversation
+    {
+        $this->ensureUserIsParticipant($user, $conversation);
+
+        if ($conversation->type === 'group') {
+            $this->ensureGroupAdmin($user, $conversation);
+        }
+
+        if ($messageId !== null && ! Message::where('id', $messageId)->where('conversation_id', $conversation->id)->exists()) {
+            throw ValidationException::withMessages(['message_id' => ['Pesan tidak ada di percakapan ini.']]);
+        }
+
+        $conversation->update(['pinned_message_id' => $messageId]);
+
+        return $conversation->load(['participants', 'latestMessage', 'pinnedMessage']);
+    }
+
+    public function ensureGroupAdmin(User $user, Conversation $conversation): void
+    {
+        $this->ensureUserIsParticipant($user, $conversation);
+
+        $isAdmin = $conversation->type === 'group' && $conversation->participants()
+            ->where('user_id', $user->id)
+            ->wherePivot('role', 'admin')
+            ->exists();
+
+        if (! $isAdmin) {
+            throw ValidationException::withMessages([
+                'conversation' => ['Hanya admin group yang bisa melakukan ini.'],
+            ]);
+        }
     }
 
     /** Files shared in a conversation, newest first ("Shared intel" panel). */

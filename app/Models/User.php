@@ -73,4 +73,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Message::class, 'sender_id');
     }
+
+    /** Online status as another user may see it (hidden when the user turned "show online status" off). */
+    public function publicStatus(?int $viewerId): string
+    {
+        if ($viewerId === $this->id) {
+            return (string) $this->status;
+        }
+
+        return ($this->settings?->show_online_status ?? true) ? (string) $this->status : 'offline';
+    }
 }
