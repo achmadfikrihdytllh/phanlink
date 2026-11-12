@@ -23,18 +23,20 @@ class UserService
         if (isset($data['avatar'])) {
             $disk = Storage::disk(config('filesystems.uploads'));
 
-            // Hapus avatar lama kalau ada, biar storage nggak numpuk file nggak kepakai
-            if ($user->avatar) {
-                $prefix = rtrim($disk->url(''), '/') . '/';
-                $oldPath = str_starts_with($user->avatar, $prefix)
-                    ? substr($user->avatar, strlen($prefix))
-                    : ltrim(str_replace('/storage/', '', $user->avatar), '/');
-                $disk->delete($oldPath);
-            }
+            $old = $user->avatar;
 
             $path = $data['avatar']->store('avatars', config('filesystems.uploads'));
             abort_if(! $path, 500, 'Foto gagal diunggah ke penyimpanan.');
             $data['avatar'] = $disk->url($path);
+
+            // Hapus avatar lama (best effort): kegagalan hapus tidak boleh menggagalkan upload baru.
+            if ($old && preg_match('#(avatars/[^/?]+)$#', $old, $m) && $m[1] !== $path) {
+                try {
+                    $disk->delete($m[1]);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
         }
 
         $user->update($data);
