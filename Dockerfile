@@ -12,26 +12,27 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist \
- && composer require league/flysystem-aws-s3-v3:^3.0 --no-scripts --no-interaction --update-no-dev \
- && composer install --no-dev --no-scripts --no-interaction --prefer-dist
+RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
+# Copy the app first, THEN add the S3 adapter: `dump-autoload --no-dev` only keeps packages that
+# composer.json (the final copy) requires, so adding it before this COPY would drop it from the autoloader.
 COPY . .
-RUN composer dump-autoload --optimize --no-dev \
+RUN composer require league/flysystem-aws-s3-v3:^3.0 --no-scripts --no-interaction --update-no-dev \
+ && composer install --no-dev --no-scripts --no-interaction --prefer-dist \
+ && composer dump-autoload --optimize --no-dev \
+ && php -r 'require "vendor/autoload.php"; if (!class_exists("League\\Flysystem\\AwsS3V3\\PortableVisibilityConverter")) { fwrite(STDERR, "S3 adapter missing from autoload\n"); exit(1); }' \
  && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache \
- && rm -f bootstrap/cache/*.php
+ && chmod -R 775 storage bootstrap/cache
 
 ENV PORT=8000
 EXPOSE 8000
 
-# Migrate & Seed on boot, then cache config/routes and serve.
+# Migrate on boot (safe: only adds missing tables), then serve.
 ENV PHP_CLI_SERVER_WORKERS=3
 
-CMD php artisan config:clear && \
-    php artisan storage:link --force && \
-    php artisan migrate --force -v && \
-    if [ "$RUN_SEEDER" = "true" ]; then php artisan db:seed --force -v; fi && \
-    php artisan config:cache && \
-    php artisan route:cache && \
+CMD echo "[boot] UPLOADS_DISK=${UPLOADS_DISK:-UNSET} DB_CONNECTION=${DB_CONNECTION:-UNSET} DB_HOST=${DB_HOST:-UNSET} AWS_BUCKET=${AWS_BUCKET:-UNSET} AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-UNSET} AWS_ENDPOINT=${AWS_ENDPOINT:-UNSET} AWS_URL=${AWS_URL:-UNSET} AWS_PATH_STYLE=${AWS_USE_PATH_STYLE_ENDPOINT:-UNSET} AWS_KEY_LEN=${#AWS_ACCESS_KEY_ID} AWS_SECRET_LEN=${#AWS_SECRET_ACCESS_KEY}"; \
+    php artisan storage:link --force; \
+    php artisan migrate --force && \
+    { [ "$RUN_SEEDER" != "true" ] || php artisan db:seed --force; } && \
+    php artisan config:cache && php artisan route:cache && \
     php artisan serve --host=0.0.0.0 --port=${PORT}
