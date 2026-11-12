@@ -19,16 +19,19 @@ RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist \
 COPY . .
 RUN composer dump-autoload --optimize --no-dev \
  && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+ && chmod -R 775 storage bootstrap/cache \
+ && rm -f bootstrap/cache/*.php
 
 ENV PORT=8000
 EXPOSE 8000
 
-# Migrate on boot (safe: only adds missing tables), then serve.
+# Migrate & Seed on boot, then cache config/routes and serve.
 ENV PHP_CLI_SERVER_WORKERS=3
 
-CMD php artisan storage:link --force; \
-    php artisan migrate --force && \
-    { [ "$RUN_SEEDER" != "true" ] || php artisan db:seed --force; } && \
-    php artisan config:cache && php artisan route:cache && \
+CMD php artisan config:clear && \
+    php artisan storage:link --force && \
+    php artisan migrate --force -v && \
+    if [ "$RUN_SEEDER" = "true" ]; then php artisan db:seed --force -v; fi && \
+    php artisan config:cache && \
+    php artisan route:cache && \
     php artisan serve --host=0.0.0.0 --port=${PORT}
