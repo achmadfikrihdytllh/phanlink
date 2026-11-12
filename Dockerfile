@@ -11,11 +11,9 @@ RUN { echo 'opcache.enable=1'; echo 'opcache.enable_cli=1'; echo 'opcache.memory
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
-
-# Copy the app first, THEN add the S3 adapter: `dump-autoload --no-dev` only keeps packages that
-# composer.json (the final copy) requires, so adding it before this COPY would drop it from the autoloader.
+# Copy the whole app first, THEN add the S3 adapter: `dump-autoload --no-dev` only keeps packages that
+# composer.json (the final copy) requires. `composer require` also refreshes the lock for it, so a
+# composer.lock that doesn't list the adapter yet no longer breaks the build.
 COPY . .
 RUN composer require league/flysystem-aws-s3-v3:^3.0 --no-scripts --no-interaction --update-no-dev \
  && composer install --no-dev --no-scripts --no-interaction --prefer-dist \
