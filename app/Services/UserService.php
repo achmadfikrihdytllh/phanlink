@@ -33,6 +33,7 @@ class UserService
             }
 
             $path = $data['avatar']->store('avatars', config('filesystems.uploads'));
+            abort_if(! $path, 500, 'Foto gagal diunggah ke penyimpanan.');
             $data['avatar'] = $disk->url($path);
         }
 

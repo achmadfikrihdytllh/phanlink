@@ -47,6 +47,8 @@ class MessageService
                 $file = $data['attachment'];
                 $path = $file->store('attachments/' . $conversation->id, config('filesystems.uploads'));
 
+                abort_if(! $path, 500, 'Lampiran gagal diunggah ke penyimpanan.');
+
                 $message->attachments()->create([
                     'file_path' => Storage::disk(config('filesystems.uploads'))->url($path),
                     'file_type' => $file->getClientMimeType(),
