@@ -78,13 +78,14 @@ class MessageService
      *
      * @return array{messages: \Illuminate\Support\Collection, has_more: bool}
      */
-    public function getMessages(User $user, Conversation $conversation, ?int $beforeId = null, int $perPage = 30): array
+    public function getMessages(User $user, Conversation $conversation, ?int $beforeId = null, int $perPage = 30, ?int $afterId = null): array
     {
         $this->conversationService->ensureUserIsParticipant($user, $conversation);
 
         $rows = Message::withTrashed()
             ->where('conversation_id', $conversation->id)
             ->when($beforeId, fn ($q) => $q->where('id', '<', $beforeId))
+            ->when($afterId, fn ($q) => $q->where('id', '>', $afterId))
             ->with(['sender', 'replyTo', 'attachments', 'reactions'])
             ->orderByDesc('id')
             ->limit($perPage + 1)

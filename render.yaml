@@ -22,6 +22,8 @@ services:
         value: pgsql
       - key: DB_URL
         sync: false          # Supabase Session pooler URI
+      - key: DB_PERSISTENT
+        value: "true"
       - key: UPLOADS_DISK
         value: s3
       - key: AWS_ACCESS_KEY_ID

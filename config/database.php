@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', env('DB_URL') ? 'pgsql' : 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
@@ -97,6 +97,8 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Keep the connection open between requests (saves the SSL + login round trips to Supabase).
+            'options' => extension_loaded('pdo_pgsql') ? [PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false)] : [],
         ],
 
         'sqlsrv' => [

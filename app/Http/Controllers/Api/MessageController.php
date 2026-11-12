@@ -25,6 +25,9 @@ class MessageController extends Controller
             $request->user(),
             $conversation,
             $request->integer('before') ?: null,
+            30,
+            // `after` = cheap poll: only messages newer than the newest one the client already has.
+            $request->integer('after') ?: null,
         );
 
         return response()->json([
