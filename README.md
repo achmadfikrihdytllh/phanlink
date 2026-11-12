@@ -2,7 +2,7 @@
 
 Backend untuk **Phantom Messenger**: aplikasi chat dengan percakapan pribadi dan grup, kontak, pesan tersimpan, pencarian, dan pengaturan akun. Frontend-nya ada di repo [`phanlink-website`](https://github.com/achmadfikrihdytllh/phanlink-website) (Angular).
 
-**Teknologi:** Laravel 12, Sanctum (token), Reverb (realtime/websocket), SQLite, Pest/PHPUnit.
+**Teknologi:** Laravel 12, Sanctum (token), Reverb (realtime/websocket), SQLite untuk lokal dan Postgres (Supabase) untuk produksi, penyimpanan file lewat S3 (Supabase Storage), PHPUnit.
 
 ## Fitur
 
@@ -70,7 +70,7 @@ Semua di bawah `/api` dan memakai header `Authorization: Bearer <token>`, kecual
 | Pengguna | `GET /users/search`, `GET /users/{id}`, `POST /profile` (`name`, `username`, `bio`, `phone_number`, `avatar` gambar maks 5 MB, kirim sebagai `multipart/form-data`) |
 | Percakapan | `GET /conversations`, `GET /conversations/{id}`, `POST /conversations/private`, `POST /conversations/group`, `PATCH /conversations/{id}/preferences` (`is_muted`, `is_pinned`), `POST /conversations/{id}/participants` (admin saja), `GET /conversations/{id}/attachments` |
 | Grup | `GET /groups` |
-| Pesan | `GET /conversations/{id}/messages?before=ID` (halaman lebih lama), `POST /conversations/{id}/messages` (`body`, `reply_to_id`, `attachment`), `PATCH /messages/{id}` (edit), `DELETE /messages/{id}`, `POST /messages/{id}/reactions` (`emoji`, toggle), `POST /conversations/{id}/read`, `POST /conversations/{id}/pin` (`message_id` atau null) |
+| Pesan | `GET /conversations/{id}/messages?before=ID` (halaman lebih lama) atau `?after=ID` (hanya pesan yang lebih baru, untuk polling), `POST /conversations/{id}/messages` (`body`, `reply_to_id`, `attachment`), `PATCH /messages/{id}` (edit), `DELETE /messages/{id}`, `POST /messages/{id}/reactions` (`emoji`, toggle), `POST /conversations/{id}/read`, `POST /conversations/{id}/pin` (`message_id` atau null) |
 | Kelola grup | `PATCH /conversations/{id}` (`name`, `description`, admin), `DELETE /conversations/{id}/participants/{userId}` (keluarkan anggota, atau keluar jika id sendiri) |
 | Rencana grup | `GET` dan `POST /conversations/{id}/events` (`title`, `starts_at`, `location`, `description`), `PATCH` dan `DELETE /events/{id}`, `POST /events/{id}/respond` (`going`, `maybe`, `declined`); `GET` dan `POST /conversations/{id}/polls` (`question`, `options[]`), `POST /polls/{id}/vote` (`option_id`), `DELETE /polls/{id}` |
 | Kontak | `GET /contacts`, `POST /contacts`, `GET /contacts/{userId}`, `PATCH /contacts/{userId}` (`nickname`, `note`, `is_muted`, `is_blocked`), `DELETE /contacts/{userId}` |
@@ -93,15 +93,43 @@ Semua di bawah `/api` dan memakai header `Authorization: Bearer <token>`, kecual
 php artisan test
 ```
 
-## Deploy gratis
+## Deploy gratis (Render + Supabase)
 
-Tersedia `Dockerfile` dan `render.yaml` (Render Blueprint: web service + Postgres gratis).
+Database dan file disimpan di **Supabase** (Postgres dan Storage), API berjalan di **Render** (Docker, paket gratis). `Dockerfile` dan `render.yaml` sudah tersedia.
 
-1. Dorong repo ke GitHub, lalu di Render pilih **New, Blueprint** dan arahkan ke repo ini.
-2. Isi variabel yang bertanda `sync: false`: `APP_KEY` (hasil `php artisan key:generate --show`), `APP_URL`, dan `FRONTEND_URL` (alamat frontend; pisahkan dengan koma untuk beberapa alamat, misalnya tambahkan `https://localhost` bila memakai APK Capacitor).
-3. Migrasi dijalankan otomatis saat container menyala.
+**1. Supabase**
+- Buat project (pilih region terdekat), catat password database.
+- **Storage:** buat bucket `phanlink` dengan opsi *Public bucket*. Di *S3 Connection*, catat endpoint dan region, lalu buat *access key* (Secret hanya tampil sekali).
+- **Connect → Session pooler:** catat host, port `5432`, dan username (`postgres.<ref-project>`). Pakai *Session pooler*, bukan *Direct connection*, karena Render gratis hanya IPv4.
 
-Batasan paket gratis: server tidur setelah sekitar 15 menit tanpa trafik, dan file unggahan (avatar, lampiran) hilang saat restart karena disk tidak permanen (pakai penyimpanan eksternal bila perlu). Realtime dimatikan (`BROADCAST_CONNECTION=null`); pesan tetap terkirim, hanya tidak muncul langsung.
+**2. Render** — *New → Blueprint* (atau *Web Service* dengan Language `Docker`), lalu isi Environment:
+
+| Variabel | Isi |
+|---|---|
+| `APP_ENV`, `APP_DEBUG` | `production`, `false` |
+| `APP_KEY` | hasil `php artisan key:generate --show` |
+| `APP_URL` | alamat API ini |
+| `FRONTEND_URL` | alamat frontend (pisahkan dengan koma untuk beberapa alamat, tanpa spasi dan tanpa `/` di akhir; tambahkan `https://localhost` bila memakai APK) |
+| `DB_CONNECTION` | `pgsql` |
+| `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | dari *Session pooler* (`DB_PORT=5432`, `DB_DATABASE=postgres`) |
+| `DB_PERSISTENT` | `true` (mempertahankan koneksi antar permintaan) |
+| `UPLOADS_DISK` | `s3` |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | dari *S3 Connection* |
+| `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_ENDPOINT` | region, `phanlink`, dan endpoint dari *S3 Connection* |
+| `AWS_URL` | `https://<ref>.supabase.co/storage/v1/object/public/phanlink` |
+| `AWS_USE_PATH_STYLE_ENDPOINT` | `true` |
+| `BROADCAST_CONNECTION` | `null` (tanpa websocket di paket gratis) |
+| `SESSION_DRIVER`, `CACHE_STORE`, `QUEUE_CONNECTION`, `LOG_CHANNEL` | `array`, `array`, `sync`, `stderr` |
+
+Migrasi berjalan otomatis saat container menyala. Cek `https://<alamat-api>/up`; jika tampil hijau, API sudah hidup. Jika log menampilkan `SQLSTATE`, periksa kembali isian `DB_*`.
+
+**Domain sendiri:** di Render, *Settings → Custom Domains*, lalu buat record `CNAME` di DNS ke alamat `onrender.com`. Setelah aktif, perbarui `APP_URL` dan `apiUrl` di frontend.
+
+**Batasan paket gratis:**
+- Server tidur setelah sekitar 15 menit sepi (request pertama lambat). Monitor gratis seperti UptimeRobot yang memanggil `/up` tiap 5 menit mencegahnya.
+- Tanpa websocket, frontend memakai polling ringan sekitar 6 detik (`GET /conversations/{id}/messages?after=ID`), dan indikator "sedang mengetik" tidak aktif.
+- Project Supabase gratis di-pause bila 7 hari tidak ada aktivitas.
+- Jangan pakai disk lokal untuk file (hilang saat restart); itu sebabnya `UPLOADS_DISK=s3`.
 
 ## Lisensi
 
