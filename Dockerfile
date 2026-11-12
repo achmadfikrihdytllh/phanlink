@@ -29,5 +29,6 @@ ENV PHP_CLI_SERVER_WORKERS=3
 
 CMD php artisan storage:link --force; \
     php artisan migrate --force && \
+    { [ "$RUN_SEEDER" != "true" ] || php artisan db:seed --force; } && \
     php artisan config:cache && php artisan route:cache && \
     php artisan serve --host=0.0.0.0 --port=${PORT}
