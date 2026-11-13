@@ -18,7 +18,7 @@ class UserResource extends JsonResource
             'bio' => $this->bio,
             'phone_number' => $this->phone_number,
             'status' => $this->publicStatus($request->user()?->id),
-            'last_seen_at' => $this->last_seen_at,
+            'last_seen_at' => $this->publicLastSeen($request->user()?->id),
         ];
     }
 }

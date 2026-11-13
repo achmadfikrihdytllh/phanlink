@@ -21,7 +21,7 @@ class ContactResource extends JsonResource
             'avatar' => $user->avatar,
             'bio' => $user->bio,
             'status' => $user->publicStatus($request->user()?->id),
-            'last_seen_at' => $user->last_seen_at,
+            'last_seen_at' => $user->publicLastSeen($request->user()?->id),
             'note' => $this->note,
             'is_muted' => $this->is_muted,
             'is_blocked' => $this->is_blocked,

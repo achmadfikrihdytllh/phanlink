@@ -20,7 +20,7 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/reset-password', [PasswordController::class, 'reset']);
 });
 
-Route::middleware(['auth:sanctum', 'throttle:240,1'])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TouchLastSeen::class, 'throttle:240,1'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 

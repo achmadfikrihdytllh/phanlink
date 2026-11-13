@@ -75,12 +75,28 @@ class User extends Authenticatable
     }
 
     /** Online status as another user may see it (hidden when the user turned "show online status" off). */
+    /** Seconds without any request after which someone no longer counts as online (the app pings about every 6s). */
+    public const ONLINE_WINDOW = 150;
+
     public function publicStatus(?int $viewerId): string
     {
         if ($viewerId === $this->id) {
             return (string) $this->status;
         }
 
-        return ($this->settings?->show_online_status ?? true) ? (string) $this->status : 'offline';
+        $visible = $this->settings?->show_online_status ?? true;
+        $fresh = $this->last_seen_at && $this->last_seen_at->gt(now()->subSeconds(self::ONLINE_WINDOW));
+
+        return ($visible && $this->status === 'online' && $fresh) ? 'online' : 'offline';
+    }
+
+    /** Last activity time, hidden when this person turned online status off. */
+    public function publicLastSeen(?int $viewerId): ?\Illuminate\Support\Carbon
+    {
+        if ($viewerId === $this->id || ($this->settings?->show_online_status ?? true)) {
+            return $this->last_seen_at;
+        }
+
+        return null;
     }
 }

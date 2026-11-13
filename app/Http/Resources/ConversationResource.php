@@ -52,6 +52,7 @@ class ConversationResource extends JsonResource
                     'username' => $user->username,
                     'avatar' => $user->avatar,
                     'status' => $user->publicStatus($authUserId),
+                    'last_seen_at' => $user->publicLastSeen($authUserId),
                     'role' => $user->pivot->role,
                     // Read marker for the "seen" ticks. Hidden when that person turned read receipts off.
                     'last_read_at' => ($user->id === $authUserId || ($user->settings?->read_receipts ?? true))
