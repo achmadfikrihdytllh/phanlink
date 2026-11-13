@@ -26,16 +26,18 @@ class ConversationResource extends JsonResource
         // Pivot row of the signed-in user (read marker, mute/pin preferences)
         $mine = $this->participants->firstWhere('id', $authUserId)?->pivot;
 
-        $unreadQuery = $this->messages()
+        $unreadQuery = fn () => $this->messages()
             ->where('sender_id', '!=', $authUserId)
             ->when($mine?->last_read_at, fn ($q, $readAt) => $q->where('created_at', '>', $readAt));
 
-        $unread = (clone $unreadQuery)->count();
+        // The list endpoint counts everything in one query and passes the number along; a single
+        // conversation (show, create) still counts its own.
+        $unread = $this->getAttribute('unread_count_cached') ?? $unreadQuery()->count();
 
         // Groups only: is one of the newest unread messages a tag of me? (Bodies are encrypted, so this
         // is checked in PHP on a small, capped batch.)
         $mentioned = $this->type === 'group' && $unread > 0
-            && (clone $unreadQuery)->where('type', 'text')->latest('id')->limit(50)->get(['id', 'body'])
+            && $unreadQuery()->where('type', 'text')->latest('id')->limit(50)->get(['id', 'body'])
                 ->contains(fn ($m) => Mentions::tags($m->body, $request->user()->username));
 
         return [

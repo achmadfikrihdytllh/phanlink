@@ -14,8 +14,10 @@ class ConversationService
 {
     public function listForUser(User $user)
     {
-        return $user->conversations()
-            ->with(['participants', 'latestMessage'])
+        // Everything the list needs is loaded in a handful of queries. The database is a network hop away,
+        // so a query per conversation (privacy settings, pinned message, unread count) made this call slow.
+        $conversations = $user->conversations()
+            ->with(['participants.settings', 'latestMessage', 'pinnedMessage'])
             ->orderByDesc(
                 DB::table('messages')
                     ->select('created_at')
@@ -24,6 +26,24 @@ class ConversationService
                     ->limit(1)
             )
             ->get();
+
+        $unread = DB::table('messages as m')
+            ->join('conversation_participants as cp', function ($join) use ($user) {
+                $join->on('cp.conversation_id', '=', 'm.conversation_id')->where('cp.user_id', '=', $user->id);
+            })
+            ->whereIn('m.conversation_id', $conversations->pluck('id'))
+            ->where('m.sender_id', '!=', $user->id)
+            ->whereNull('m.deleted_at')
+            ->where(fn ($q) => $q->whereNull('cp.last_read_at')->orWhereColumn('m.created_at', '>', 'cp.last_read_at'))
+            ->groupBy('m.conversation_id')
+            ->selectRaw('m.conversation_id, count(*) as total')
+            ->pluck('total', 'conversation_id');
+
+        foreach ($conversations as $conversation) {
+            $conversation->setAttribute('unread_count_cached', (int) ($unread[$conversation->id] ?? 0));
+        }
+
+        return $conversations;
     }
 
     public function startPrivate(User $user, int $otherUserId): Conversation
