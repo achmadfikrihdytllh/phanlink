@@ -61,6 +61,34 @@ class PhantomApiTest extends TestCase
             ->assertJsonPath('conversation.is_muted', true);
     }
 
+    public function test_group_list_flags_unread_messages_that_tag_me(): void
+    {
+        $this->me->forceFill(['username' => 'joker'])->save();
+
+        $this->message('hello everyone');
+        $this->message('hey @skull this is not for you');
+        $this->getJson('/api/conversations')->assertJsonPath('conversations.0.has_unread_mention', false);
+
+        $this->message('ping @Joker.');
+        $this->getJson('/api/conversations')
+            ->assertOk()
+            ->assertJsonPath('conversations.0.has_unread_mention', true);
+
+        // Reading the chat clears the flag.
+        $this->postJson("/api/conversations/{$this->group->id}/read")->assertOk();
+        $this->getJson('/api/conversations')->assertJsonPath('conversations.0.has_unread_mention', false);
+    }
+
+    public function test_a_tag_inside_another_word_or_email_is_not_a_mention(): void
+    {
+        $this->me->forceFill(['username' => 'joker'])->save();
+
+        $this->message('mail me at x@joker.com');
+        $this->message('hi @jokerfan');
+
+        $this->getJson('/api/conversations')->assertJsonPath('conversations.0.has_unread_mention', false);
+    }
+
     public function test_groups_endpoint_lists_only_groups(): void
     {
         $this->getJson('/api/groups')

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Mentions;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,10 +26,17 @@ class ConversationResource extends JsonResource
         // Pivot row of the signed-in user (read marker, mute/pin preferences)
         $mine = $this->participants->firstWhere('id', $authUserId)?->pivot;
 
-        $unread = $this->messages()
+        $unreadQuery = $this->messages()
             ->where('sender_id', '!=', $authUserId)
-            ->when($mine?->last_read_at, fn ($q, $readAt) => $q->where('created_at', '>', $readAt))
-            ->count();
+            ->when($mine?->last_read_at, fn ($q, $readAt) => $q->where('created_at', '>', $readAt));
+
+        $unread = (clone $unreadQuery)->count();
+
+        // Groups only: is one of the newest unread messages a tag of me? (Bodies are encrypted, so this
+        // is checked in PHP on a small, capped batch.)
+        $mentioned = $this->type === 'group' && $unread > 0
+            && (clone $unreadQuery)->where('type', 'text')->latest('id')->limit(50)->get(['id', 'body'])
+                ->contains(fn ($m) => Mentions::tags($m->body, $request->user()->username));
 
         return [
             'id' => $this->id,
@@ -38,6 +46,7 @@ class ConversationResource extends JsonResource
             'description' => $this->description,
             'created_by' => $this->created_by,
             'unread_count' => $unread,
+            'has_unread_mention' => $mentioned,
             'pinned_message' => $this->pinned_message_id && $this->pinnedMessage ? [
                 'id' => $this->pinnedMessage->id,
                 'body' => $this->pinnedMessage->body,
